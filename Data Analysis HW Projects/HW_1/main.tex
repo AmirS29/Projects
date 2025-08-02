@@ -1,0 +1,380 @@
+\documentclass{article}
+\setlength{\parindent}{1.5em} % Sets the automatic indent size
+\usepackage{graphicx} % Required for inserting images
+\usepackage{pictex}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{xcolor}
+
+\lstset{
+    language=C++,
+    basicstyle=\ttfamily\tiny,
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{gray}\itshape,
+    stringstyle=\color{red},
+    numbers=none,
+    numberstyle=\tiny,
+    stepnumber=1,
+    breaklines=true,
+    frame=single,
+    captionpos=b,
+    showstringspaces=false
+}
+
+
+\title{HW 1}
+\author{
+Elhaam Bhuiyan,
+Brian Juca,
+Amir Samarxhiu,
+Shaqib Syed
+}
+\date{January 31, 2025}
+
+\begin{document}
+
+\maketitle
+
+\section*{Introduction}
+
+\hspace{1.5em} Random number generators (RNGs) are an integral part of our course and form the foundation of simulation-based models. Many applications, such as Monte Carlo methods, financial risk modeling, and stochastic processes, rely on RNGs to produce sequences of values that are uniformly distributed and statistically independent. However, not all RNG algorithms generate sequences that satisfy these properties, which makes rigorous testing of these algorithms essential.
+
+To prepare for our analysis, we first execute \(\texttt{SomeTests.cpp}\) to verify that the RNG implementation runs correctly, evaluate its performance on our systems, and gather information about our system's data representation. The core of this report uses statistical tests to evaluate the two- and three-dimensional performance of three commonly used RNGs: Mersenne Twister, Multiply-With-Carry (MWC), and Knuth's 64-bit Linear Congruential Generator (LCG).
+
+In our tests, we analyze whether the generated values exhibit uniformity and independence. We assess this by examining how values are distributed across bins and comparing the statistical properties of these bins to expected probabilistic behavior. If an RNG functions correctly, we can apply a statistical process discussed later in the report to produce a histogram that resembles a standard normal distribution.
+
+By applying these statistical tests to RNGs in higher dimensions, we can assess whether uniformity and independence hold beyond one dimension. If the histograms generated later in the report significantly deviate from normality, this suggests that there are systematic issues in generating higher-dimensional random number sequences. Identifying these shortcomings is crucial because they can compromise the accuracy of the simulation-based applications we will explore in this course.
+
+\section*{Results}
+
+%\textbf{Problem 1:} 
+\subsection*{Problem 1:}  
+
+\hspace{1.5em}We first executed \(\texttt{SomeTests.cpp}\) to produce 4 billion realizations of \(U \sim \text{Uniform}(0, 1) \) using the Mersenne Twister algorithm. The program successfully completes this task in approximately 10 to 30 seconds, depending on the system used and its hardware. Since the generated values are in the expected (0, 1) range and no errors were observed, we can confirm that the RNG implementation runs correctly. 
+
+In addition to generating random values, this program also reports the sizes of different integer types. On our systems, the size of an \(\texttt{unsigned short int}\) was 2 bytes, and an \(\texttt{unsigned int}\) was 4 bytes across all tested systems. However, the size of an \(\texttt{unsigned long int}\)\ varied by operating system: it was 4 bytes on Windows, even on 64-bit architecture, and 8 bytes on macOS and Linux.
+
+%\vspace{2cm}
+%\noindent \textbf{Problem 2:}  
+\subsection*{Problem 2:}  
+
+\hspace{1.5em}In the two-dimensional test, we assess the performance of various RNGs by generating pairs \((U_1, U_2)\), where each \(U_i\) is independently drawn from a \(\text{Uniform}(0, 1)\) distribution. These points are mapped onto the unit square \([0, 1] \times [0, 1]\) and divided into 90,000 bins by partitioning each axis into 300 sub-intervals, ensuring that each bin represents an equal subregion of the unit square. To do this, we map each coordinate into an integer bin index \(M_1 = \lfloor300U_1\rfloor\) and \(M_2 = \lfloor300U_2\rfloor\). Each of these indices are then mapped to a unique integer index in \(\left\{0, \dots, 89999\right\}\) using the formula \(M = 300M_1 + M_2\).
+
+Since each generated pair is placed into one of the 90,000 bins independently, the number of occurrences in each bin follows a Binomial distribution \(X_m \sim \text{Binomial}(n, p)\), where \(p = \frac{1}{90000}\). This is because we can treat each simulation as an independent Bernoulli trial with a probability \(p\) of landing in a specific bin.
+
+By the Central Limit Theorem, since each bin count is sum of many independent Bernoulli trials, its distribution converges in distribution to the normal distribution for sufficiently large \(n\). More particularly, we have that \(X_m \xrightarrow{\text{d}}\ \text{Normal}\left(\mu, \sigma^2\right)\) as \(n \rightarrow \infty \) where \(\mu = np\) and \(\sigma^2 = np(1-p)\). Since \(X_m\) is approximately normal for large \(n\), we standardize it to a \(Z\text{-score}\): \(Z_m = \frac{X_m - \mu}{\sigma}\), where \(\sigma = \sqrt{np(1 - p)}\).  If the RNG maintains uniformity and independence, the histogram of \(Z\text{-scores}\) should closely resemble a standard normal distribution. 
+
+The following histograms illustrate the results for various RNGs, using seed 2025 and 100,000,000 simulations:
+
+\begin{center}
+\maketitle
+\beginpicture
+\setcoordinatesystem units <0.45 truein, 1.5 truein>
+\setplotarea x from -5 to 5, y from  0 to 1.0
+\axis bottom
+ticks numbered from -5 to 5 by 1
+/
+\plot "Normal.txt"
+\plot -5.2 0 -5.1 0 -5.1 1  -5.2 1 /
+\put {0} [cr] at -5.3 0
+\put {$\frac{1}{\sqrt{2\pi}}$} [cr] at -5.3 1
+\put {\sl Standard Normal Histogram for Knuth's 64-bit LCG} at 0 1.2
+\sethistograms
+\plot "HistogramDataQ2LCG.txt"
+\endpicture
+\end{center}
+
+\begin{center}
+\maketitle
+\beginpicture
+\setcoordinatesystem units <0.45 truein, 1.5 truein>
+\setplotarea x from -5 to 5, y from  0 to 1.0
+\axis bottom
+ticks numbered from -5 to 5 by 1
+/
+\plot "Normal.txt"
+\plot -5.2 0 -5.1 0 -5.1 1  -5.2 1 /
+\put {0} [cr] at -5.3 0
+\put {$\frac{1}{\sqrt{2\pi}}$} [cr] at -5.3 1
+\put {\sl Standard Normal Histogram for Mersenne Twister} at 0 1.2
+\sethistograms
+\plot "HistogramDataQ2MT.txt
+"
+\endpicture
+\end{center}
+
+\begin{center}
+\maketitle
+\beginpicture
+\setcoordinatesystem units <0.45 truein, 1.5 truein>
+\setplotarea x from -5 to 5, y from  0 to 1.0
+\axis bottom
+ticks numbered from -5 to 5 by 1
+/
+\plot "Normal.txt"
+\plot -5.2 0 -5.1 0 -5.1 1  -5.2 1 /
+\put {0} [cr] at -5.3 0
+\put {$\frac{1}{\sqrt{2\pi}}$} [cr] at -5.3 1
+\put {\sl Standard Normal Histogram for MWC} at 0 1.2
+\sethistograms
+\plot "HistogramDataQ2MWC.txt"
+\endpicture
+\end{center}
+
+We see that the histograms for all three RNGs closely resemble a standard normal distribution, confirming that the bin counts align with the expected probabilistic behavior based on the methodology we described above. Since there are no significant deviations from normality in any of the histograms, this confirms that all of our tested RNGs maintain uniformity and independence under our two-dimensional test.
+
+While these results validate the RNG in two dimensions, we will further evaluate whether uniformity and independence hold in three dimensions to assess the robustness of the RNGs in higher-dimensional spaces.
+
+%\noindent \textbf{Problem 3:}  
+\subsection*{Problem 3:}
+\hspace{1.5em}To extend our analysis into three dimensions, we generate triplets \((U_1, U_2, U_3)\) with each \(U_i\) independently drawn from \(\text{Uniform}(0, 1)\). These points are now mapped onto the unit cube \([0, 1] \times [0, 1] \times [0, 1]\) and partitioned into bins, similar to the two-dimensional case. However, instead of a \(300 \times 300\) grid, we divide each axis into \(K = 45\) sub-intervals with a total of \(K^3 = 91,125\) bins. The choice of \(K = 45\) ensures that the total number of bins remains within the assignment's recommendation that  \(K^3 \in [50,000, 100,000]\) while also maintaining consistency with our two-dimensional test.
+
+The process of testing for uniformity and independence in three dimensions is extremely similar to the two-dimensional case, so we will provide a streamlined explanation. We first map each coordinate to an integer index using \(M_1 = \lfloor KU_1\rfloor\),  \(M_2 = \lfloor KU_2\rfloor\),  \(M_3 = \lfloor KU_3\rfloor\). Then we assign each triplet to a unique integer index using the formula \(M = K^2M_1 + KM_2 + M_3 \in [0, K^3 - 1]\) which guarantees a one-to-one mapping. Each of the bin counts now represent a Binomial distribution with \(p = \frac{1}{K^3}\). By Central Limit Theorem, these bin counts converge in distribution to the Normal distribution, allowing us to compute standardized \(Z\text{-scores}\) and build our histogram.
+
+The following histograms illustrate the results for various RNGs, using seed 2025 and 100,000,000 simulations:
+
+\begin{center}
+\maketitle
+\beginpicture
+\setcoordinatesystem units <0.45 truein, 1.5 truein>
+\setplotarea x from -5 to 5, y from  0 to 1.0
+\axis bottom
+ticks numbered from -5 to 5 by 1
+/
+\plot "Normal.txt"
+\plot -5.2 0 -5.1 0 -5.1 1  -5.2 1 /
+\put {0} [cr] at -5.3 0
+\put {$\frac{1}{\sqrt{2\pi}}$} [cr] at -5.3 1
+\put {\sl Standard Normal Histogram for Knuth's 64-bit LCG} at 0 1.2
+\sethistograms
+\plot "HistogramDataQ3LCG.txt"
+\endpicture
+\end{center}
+
+\begin{center}
+\maketitle
+\beginpicture
+\setcoordinatesystem units <0.45 truein, 1.5 truein>
+\setplotarea x from -5 to 5, y from  0 to 1.0
+\axis bottom
+ticks numbered from -5 to 5 by 1
+/
+\plot "Normal.txt"
+\plot -5.2 0 -5.1 0 -5.1 1  -5.2 1 /
+\put {0} [cr] at -5.3 0
+\put {$\frac{1}{\sqrt{2\pi}}$} [cr] at -5.3 1
+\put {\sl Standard Normal Histogram for Mersenne Twister} at 0 1.2
+\sethistograms
+\plot "HistogramDataQ3MT.txt
+"
+\endpicture
+\end{center}
+
+\begin{center}
+\maketitle
+\beginpicture
+\setcoordinatesystem units <0.45 truein, 1.5 truein>
+\setplotarea x from -5 to 5, y from  0 to 1.0
+\axis bottom
+ticks numbered from -5 to 5 by 1
+/
+\plot "Normal.txt"
+\plot -5.2 0 -5.1 0 -5.1 1  -5.2 1 /
+\put {0} [cr] at -5.3 0
+\put {$\frac{1}{\sqrt{2\pi}}$} [cr] at -5.3 1
+\put {\sl Standard Normal Histogram for MWC} at 0 1.2
+\sethistograms
+\plot "HistogramDataQ3MWC.txt"
+\endpicture
+\end{center}
+
+We see that the histograms for Mersenne Twister and 64-bit LCG closely resemble a standard normal distribution, which suggests that both generators maintain uniformity and independence under our statistical test. However, the histogram for MWC deviates from \(\text{Normal}(0, 1)\). It exhibits a spike near \(Z = -5\) and is shifted to the right. This indicates that there are irregularities in the generated sequence using MWC and it does not generalize well in higher dimensions compared to the other two RNGs.
+
+\section*{Conclusion}
+\hspace{1.5em} In the two-dimensional test, all RNGs produced \(Z\text{-score}\) histograms that closely approximated a standard normal distribution, confirming uniformity and independence.
+
+In the three-dimensional test, MWC displayed significant deviations from normality. The MWC histogram was noticeably rightward-shifted relative to the standard normal distribution. Though understanding the cause of this behavior is beyond the scope of course, the shift suggests the presence of systematic bias. This tells us that MWC does not maintain uniformity and independence in higher dimensions. For Mersenne Twister and 64-bit LCG, they both pass our tests for uniformity and independence in three dimensions, indicating that they hold up better than MWC in higher-dimensional spaces, but more rigorous testing in these higher-dimensional spaces should be done to verify this.
+
+These results ultimately demonstrate that MWC is unsuitable for high-dimensional applications requiring uniformity and independence. Instead, Mersenne Twister or LCG are preferred choices, since our analysis has shown that they both maintain these statistical properties in at least three dimensions. 
+
+\section*{Contributions}
+\hspace{1.5em} Everyone contributed to both the report and the coding, whether through comments, feedback, or coding. Amir, Elhaam, and Shaqib primarily focused on writing the report, ensuring clarity, structure, and grammatical correctness. Amir worked on the introduction, graphs, Problem 1, and Contributions. Elhaam and Shaqib focused on Problems 2 and 3, while also assisting in writing the introduction and conclusion. Brian mainly focused on developing and debugging the code, ensuring smoothness and efficiency. 
+
+We consistently reviewed and provided feedback on each other's work, clarifying details and concepts when necessary. Additionally, we maintained regular communication to keep everyone informed on the progress of the project, keeping everything well-organized and a joint effort.
+\pagebreak
+\section*{Appendix}
+Code for Part 2:
+\begin{lstlisting}
+
+int main() {
+   // Declare the variables.
+   double U[2], Z, p, q, mu, sigma;
+   int *X;
+   double Uniform(int);
+
+   /*
+   Allocate memory for 90000 bins for X[0] to X[89999] and initialize each to 0.
+   Since there are 300 possible bins for M1 and M2, each pair gets mapped to a single
+   index M = 300 * M1 + M2. This requires 90000 bins. 
+   */
+   X = (int *) calloc(90000, sizeof(int));
+
+   // Select which RNG to use.
+   printf("Which RNG should I use?...\n");
+   printf("    (1) 32 bit LCG\n");
+   printf("    (2) MWC\n");
+   printf("    (3) 64 bit LCG\n");
+   int w = GetInteger(" or (4) Mersenne Twister... ");
+
+   // Seed the relevant RNG.
+   Uniform(w);
+
+   // Get number of simulations
+   int n = GetInteger("How many simulations? (100 million - 1 billion suggested)... ");
+
+   // Start the clock.
+   Time();
+
+   // Initialize first two random numbers U_1 and U_2
+   U[0] = Uniform(w);
+   U[1] = Uniform(w);
+
+   // Begin simulations.
+   for (int k = 0; k < n; k++) {
+
+      // After 1 percent of the job is done, report estimated run-time.
+      if (k == n / 100) {
+         printf("\nShould be done in %.1f seconds.\n\n", 100.0 * Time());
+      }
+
+      /*
+      Generate n pairs of (U1, U2). Map them to bins M1, M2 and calculate M.
+      Increment the count X[M] to track frequency.
+      */
+      int M1 = (int)(U[0] * 300); 
+      int M2 = (int)(U[1] * 300);
+      int M = 300 * M1 + M2;
+
+      // Increment the appropriate counter by 1.
+      X[M]++;
+
+      // Update the U values using the "overlapping" approach.
+      U[0] = U[1];  // Shift U2 to U1
+      U[1] = Uniform(w);  // Generate a new U2
+   }
+
+   /*
+   Each X[M] should follow a Binomial(n, p) distribution where p = 1/90000.
+   Using Central Limit Theorem, we can normalize X[m] to obtain Z-scores for our histogram.
+   */ 
+   p = 1.0 / 90000.0;
+   q = 1.0 - p;
+   mu = n * p;
+   sigma = sqrt(n * p * q);
+
+   // Normalize and add data to a histogram. From CLT, this should follow Normal(0, 1).
+   for (int m = 0; m < 90000; m++) {
+      Z = (X[m] - mu) / sigma;
+      NormalHistogram(Z, 40, 0);
+   }
+
+   // Create TeX file for visualization.
+   NormalHistogram(0, 40, 1);
+
+   printf("Computations took %.1f seconds.\n", Time());
+   printf("View the results with Histogram.tex.\n");
+
+   Exit();
+}
+\end{lstlisting}
+\pagebreak
+Code for Part 3:
+\begin{lstlisting}
+int main() {
+   // Declare the variables.
+   double U[3], Z, p, q, mu, sigma;
+   int *X;
+   double Uniform(int);
+
+   /* Allocate memory for X[0] to X[91124] and initialize each to 0. Since there are 45 possible bins for each dimension, we require K^3 = 91,125 bins for all possible mappings. */
+   X = (int *) calloc(91125, sizeof(int));
+
+   // Get which RNG.
+   printf("Which RNG should I use?...\n");
+   printf("    (1) 32 bit LCG\n");
+   printf("    (2) MWC\n");
+   printf("    (3) 64 bit LCG\n");
+   int w = GetInteger(" or (4) Mersenne Twister... ");
+
+   // Seed the relevant RNG.
+   Uniform(w);
+
+   // Get number of simulations.
+   int n = GetInteger("How many simulations? (100 million - 1 billion suggested)... ");
+
+   // Start the clock.
+   Time();
+
+   // Initialize first three random numbers U1, U2, and U3.
+   for (int j = 0; j < 3; j++) {
+      U[j] = Uniform(w);
+   }
+
+   // Begin simulations.
+   for (int k = 0; k < n; k++) {
+
+      // After 1 percent of the job is done, report estimated run-time.
+      if (k == n / 100) {
+         printf("\nShould be done in %.1f seconds.\n\n", 100.0 * Time());
+      }
+
+      /* From each triplet (U1, U2, U3), we map each coordinate to an integer value
+      0 <= M1, M2, M3 <= 44 by M1 = floor(45 * U1), M2 = floor(45 * U2), and M3 = floor(45 * U3).
+      */
+      int M1 = (int)(U[0] * 45); 
+      int M2 = (int)(U[1] * 45);
+      int M3 = (int)(U[2] * 45);
+
+      /* 
+      We use the following formula to map M1, M2, M3 to an integer index M where 0 <= M <= 91124.
+      To understand this formula, visualize a K x K x K cube consisting of K layers, each containing a
+      K x K grid. The term K^2 * M1 determines which layer we are in. Then, K * M2 selects the row
+      within that grid. Finally, M3 specifies the column within that row. This ensures a unique mapping of
+      (M1, M2, M3) to a unique one-dimensional integer index.
+      */
+      int M = 2025 * M1 + 45 * M2 + M3; 
+
+      // Increment the appropriate counter by 1.
+      X[M]++;
+
+      // Update the U values using the "overlapping" approach.
+      U[0] = U[1];  // Shift U2 to U1
+      U[1] = U[2];  // Shift U3 to U2
+      U[2] = Uniform(w);  // Generate a new U3
+   }
+
+   /*
+   Each X[m] should follow a Binomial(n, p) distribution where p = 1/91125.
+   Using Central Limit Theorem, we can normalize X[m] to obtain Z-scores for our histogram.
+   */ 
+   p = 1.0 / 91125.0;
+   q = 1.0 - p;
+   mu = n * p;
+   sigma = sqrt(n * p * q);
+
+   // Normalize and add data to a histogram. From CLT, this should follow Normal(0, 1).
+   for (int m = 0; m < 91125; m++) {
+      Z = (X[m] - mu) / sigma;
+      NormalHistogram(Z, 40, 0);
+   }
+
+   // Create the TeX files for viewing.
+   NormalHistogram(0, 40, 1);
+
+   printf("Computations took %.1f seconds.\n", Time());
+   printf("View the results with Histogram.tex.\n");
+
+   Exit();
+}
+\end{lstlisting}
+\end{document}

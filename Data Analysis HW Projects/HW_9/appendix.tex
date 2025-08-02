@@ -1,0 +1,336 @@
+
+\documentclass{report}
+\setlength{\parindent}{0pt} % Sets the automatic indent size
+\usepackage{graphicx} % Required for inserting images
+\usepackage{pictex}   % Ensure PicTeX is available
+\usepackage{pgfplots}
+\usepackage{filecontents}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{xcolor}
+
+
+\lstset{
+    language=,
+    basicstyle=\ttfamily\tiny,
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{gray}\itshape,
+    stringstyle=\color{red},
+    numbers=none,
+    numberstyle=\tiny,
+    stepnumber=1,
+    breaklines=true,
+    frame=single,
+    captionpos=b,
+    showstringspaces=false
+}
+\begin{document}
+
+\setcounter{page}{1}
+\section*{Appendix:}
+
+We edited and used the following code to implement Funky Bonds
+
+\begin{lstlisting}[language=C++]
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// This program recursively values a strange type of interest rate collar.
+////////////////////////////////////////////////////////////////////////////////
+
+
+// Global variables.  These are used in IRFunctions.h and must be declared
+//    before IRFunctions.h is included.
+
+// Market data.
+double *par, sigma;
+
+// Lattice data.
+double   **d;            // The state-dependent single-period discount factors.
+double   **V;            // State-dependent lattice values of future cash flow.
+
+// Collar data.
+double  ***C;
+int     ***I;
+double flr, cap;
+
+
+// Deferred Cap data
+double cap_rate;
+
+#include "Functions.h"
+#include "IRFunctions.h"
+
+// Found below the main program:
+double ValueCollar (int, int, int);
+void   AllocateMemory ();
+
+int main () {
+
+   // Allocate space for the node-dependent amortization.
+   AllocateMemory ();
+
+   // Get the user specified par curve.
+   MakeParCurve ();
+
+   // Get the volatility parameter and convert to a decimal.
+   sigma = GetDouble ("What is the short-rate volatility in percent?... ");
+   sigma /= 100.0;
+
+   // Calibrate the Salomon binomial lattice to explain the par yield curve in par[].
+   Calibrate ();
+
+   // Value the collar.
+   printf ("\n");
+   cap = 7.0;
+   flr = 3.0;
+   printf ("The collar's value is %8.3f\n", ValueCollar (0,0,0));
+
+   Pause ();
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Recursively value the collar.
+////////////////////////////////////////////////////////////////////////////////
+double ValueCollar(int n, int i, int k) {
+   // If already computed, return already computed value value
+   if (C[n][i][k] > 0.0) return C[n][i][k];
+
+   // Terminal node (after 10 years = 20 semiannual periods)
+   if (n == 20) {
+      C[n][i][k] = 5.0 * k;  // $5MM × number of outside periods
+      return C[n][i][k];
+   }
+
+   // Get the short rate at this node (semiannual compounding)
+   double r = ParRate(n, i, n+1);  // in percent
+
+   // Check if the short rate is outside the collar band [3%, 7%]
+   int new_k = k;
+   if (r < flr || r > cap) new_k++;
+
+   // Value from up and down states
+   double Vu = ValueCollar(n+1, i+1, new_k);
+   double Vd = ValueCollar(n+1, i-1, new_k);
+
+   // Expected value discounted back one period
+   C[n][i][k] = 0.5 * (Vu + Vd) * d[n][i];
+
+   return C[n][i][k];
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Allocate memory for the par yield curve.
+//
+// Allocate memory for d[n][i] and V[n][i] lattice arrays, where 0 <= n <= 60
+//    and -n <= i <= n.
+//
+// Allocate memory for C[n][i][k] and I[n][i][k] valuation arrays, where
+//    0 <= n <= 60, -n <= i <= n, and 0 <= k <= 20.
+//
+//calloc initializes everything to 0.
+////////////////////////////////////////////////////////////////////////////////
+void AllocateMemory () {
+
+   int n, i;
+
+   // Allocate memory for term structure data.
+   par = List(60);
+
+   // Allocate lattice arrays.
+   d = AllocateLatticeArray ();
+   V = AllocateLatticeArray ();
+
+   C = (double ***) calloc (61, sizeof (double **));
+   for (n = 0; n <= 60; n++) {
+      C[n] = (double **) calloc (2*n+1, sizeof (double *));
+      C[n] += n;
+      for (i = -n; i <= n; i++) {
+         C[n][i] = (double *) calloc (21, sizeof (double));
+      }
+   }
+
+   I = (int ***) calloc (61, sizeof (int **));
+   for (n = 0; n <= 60; n++) {
+      I[n] = (int **) calloc (2*n+1, sizeof (int *));
+      I[n] += n;
+      for (i = -n; i <= n; i++) {
+         I[n][i] = (int *) calloc (21, sizeof (int));
+      }
+   }
+
+   return;
+
+}
+\end{lstlisting}
+\begin{lstlisting}[language=C++]
+
+
+////////////////////////////////////////////////////////////////////////////////
+// This program recursively values a Funky Put.
+////////////////////////////////////////////////////////////////////////////////
+
+// Global variables.  These are used in IRFunctions.h and must be declared
+//    before IRFunctions.h is included.
+
+// Market data.
+double *par, sigma;
+
+// Lattice data.
+double   **d;            // The state-dependent single-period discount factors.
+double   **V;            // State-dependent lattice values of future cash flow.
+double   **I;
+double   **S;
+double   **P;
+
+#include "Functions.h"
+#include "IRFunctions.h"
+
+// Found below the main program:
+double ValuePut (int, int);
+double Payment (int);
+double Max (double, double);
+void   AllocateMemory ();
+void   ReportStrategy ();
+
+
+int main () {
+
+   // Allocate space for the node-dependent amortization and for Funky Put valuation.
+   AllocateMemory ();
+
+   // Get the user specified par curve.
+   MakeParCurve ();
+
+   // Get the volatility parameter and convert to a decimal.
+   sigma = GetDouble ("What is the short-rate volatility in percent?... ");
+   sigma /= 100.0;
+
+   // Calibrate the Salomon binomial lattice to explain the par yield curve in par[].
+   Calibrate ();
+
+   printf ("\n");
+   printf ("The Funky Put's value is %.3f million.\n", ValuePut (0,0));
+
+   // Report the option management strategy.
+   ReportStrategy ();
+
+   Pause ();
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Recursively value the Funky Put and record the optimal option management
+//    strategy: S[n][i] = 1/0 if payment is/isn't demanded at node (n,i).
+// P[n][i] is the value of the put if payment has not been demanded through
+//    period n.
+////////////////////////////////////////////////////////////////////////////////
+double ValuePut (int n, int i) {
+   // Terminal node: after 30 years = 60 half-year periods
+   printf("P[%d][%d] = %.6f\n", n, i, P[n][i]);
+   if (n == 60) {
+      S[n][i] = 1;  // Always demand at maturity
+      P[n][i] = Payment(n);
+      return P[n][i];
+   }
+   // Check and see if put value is already computed
+   if (P[n][i] > 0.0) {
+      return P[n][i];
+   }
+   // Exercise now
+   double exercise = Payment(n);
+
+   // Continue with expected discounted value of future
+   double up = ValuePut(n + 1, i + 1);
+   double down = ValuePut(n + 1, i - 1);
+   double continuation = 0.5 * d[n][i] * (up + down);
+
+   // Choose the better option
+   if (exercise >= continuation) {
+      S[n][i] = 1; // Demand payment now
+      P[n][i] = exercise;
+   } else {
+      S[n][i] = 0; // Wait
+      P[n][i] = continuation;
+   }
+
+   return P[n][i];
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Payment in millions at period n, if so demanded.
+////////////////////////////////////////////////////////////////////////////////
+double Payment (int n) {
+
+   return (100.0 * n) / 60;
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Maximum of two doubles.
+////////////////////////////////////////////////////////////////////////////////
+double Max (double a, double b) {
+
+   return (a > b? a : b);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Report the option management strategy for viewing with PutStrategy.tex.
+////////////////////////////////////////////////////////////////////////////////
+void ReportStrategy () {
+
+   int i, n;
+   double r;
+   FILE *fp1, *fp2;
+
+   // Open the output files.
+   fp1 = fopen ("Put.txt", "w");
+   fp2 = fopen ("NotPut.txt", "w");
+
+   // Loop through the lattice nodes (n,i).
+   for (n = 0; n < 60; n++) {
+      for (i = -n; i <= n; i++) {
+
+         // Compute the short rate at (n,i).
+         r = ParRate (n, i, n+1);
+
+         // For rates below 15%, report put strategy to the screen.
+         if (r < 15.0) {
+            if (S[n][i]) {
+               fprintf (fp1, "%5.1f  %6.2f\n", 0.5*n, r); // Put here.
+            } else {
+               fprintf (fp2, "%5.1f  %6.2f\n", 0.5*n, r); // Not put here.
+            }
+         }
+
+      }
+   }
+
+   fclose (fp1);
+   fclose (fp2);
+
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Allocate memory for a lattice array x[n][i], where 0 <= n <= 60
+//   and -n <= i <= n. Do this for x = d, V, I, S, and P.
+////////////////////////////////////////////////////////////////////////////////
+void AllocateMemory () {
+
+
+   // Allocate memory for term structure data.
+   par = List(60);
+
+   // Allocate lattice arrays.
+   d = AllocateLatticeArray ();
+   V = AllocateLatticeArray ();
+   I = AllocateLatticeArray ();
+   S = AllocateLatticeArray ();
+   P = AllocateLatticeArray ();
+}
+\end{lstlisting}
+\end{document}

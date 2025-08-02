@@ -1,0 +1,1007 @@
+\documentclass{report}
+\setlength{\parindent}{0pt} % Sets the automatic indent size
+\usepackage{graphicx} % Required for inserting images
+\usepackage{pictex}   % Ensure PicTeX is available
+\usepackage{pgfplots}
+\usepackage{filecontents}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{xcolor}
+
+
+\lstset{
+    language=,
+    basicstyle=\ttfamily\tiny,
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{gray}\itshape,
+    stringstyle=\color{red},
+    numbers=none,
+    numberstyle=\tiny,
+    stepnumber=1,
+    breaklines=true,
+    frame=single,
+    captionpos=b,
+    showstringspaces=false
+}
+\begin{document}
+
+\setcounter{page}{10}
+\section*{Appendix:}
+
+Code for problem 2:
+\begin{lstlisting}[language=C++]
+////////////////////////////////////////////////////////////////////////////////
+// This is starter code for Homework 6.
+////////////////////////////////////////////////////////////////////////////////
+
+// This function is found below.
+void GetData ();
+
+// "ticker" is a global variable.
+char **ticker;
+
+// The covariance matrix is a global variable.
+double **V;
+
+int Nstocks = 30;
+
+#include "Functions.h"
+
+// Computes the portfolio variance (energy) given portfolio weights x
+double Energy(double *x) {
+   double sum = 0.0;
+   for (int i = 1; i <= Nstocks; i++) {
+       for (int j = 1; j <= Nstocks; j++) {
+           sum += x[i] * V[i][j] * x[j]; //x^T V x
+       }
+   }
+   return sum;
+}
+
+//initializes a portfolio
+void InitializePortfolio(double *x) {
+    double total = 0.0;
+    for (int i = 1; i <= Nstocks; i++) {
+        x[i] = MTUniform();  // Random normal weights
+        total += x[i];
+    }
+    // Rescale so that sum is 100
+    for (int i = 1; i <= Nstocks; i++) {
+        x[i] = x[i] / total * 100.0;
+    }
+}
+
+void ProposeNeighbor(double *x, double *x_new) {
+    double delta = 0.01; // move 1 cent between two stocks
+    //pick 2 different stocks
+    int i = 1 + (int)(Nstocks * MTUniform());
+    int j = 1 + (int)(Nstocks * MTUniform());
+    while (j == i) {
+        j = 1 + (int)(Nstocks * MTUniform());
+    }
+    //copy the changes onto the new portfolio
+    for (int k = 1; k <= Nstocks; k++) {
+        x_new[k] = x[k];
+    }
+    //moves $0.10 from one stock to another
+    x_new[i] += delta;
+    x_new[j] -= delta;
+}
+
+
+
+
+void Metropolis() {
+    double T, DeltaE, p, U, t, E, t1;
+    int k, n, AcceptTransition, NextReport;
+    //creates space for 3 portfolios, current one, a new one (will have changes), and the lowest variance (best) one
+    double *x = (double *)calloc(Nstocks + 1, sizeof(double));
+    double *x_new = (double *)calloc(Nstocks + 1, sizeof(double));
+    double *x_best = (double *)calloc(Nstocks + 1, sizeof(double));
+
+    InitializePortfolio(x);
+    double E_current = Energy(x);
+
+    for (int i = 1; i <= Nstocks; i++){ 
+        x_best[i] = x[i];
+    }
+    double E_best = E_current;
+
+    // Report next route at Markov chain period number "NextReport".
+    // Reports are generated at 1000, 10000, 100000, 1000000, 10000000, and
+    //    100000000 steps of the Markov chain.
+    NextReport = 1000;
+
+    // Get the temperature parameter.
+    T = GetDouble ("\nWhat is the temperature (best is .07)?... ");
+
+    printf ("\nI'll be done in 60 seconds or less. ");
+    t = t1 = Time ();
+    n = 0;
+
+    // Run the Markov chain for 60 seconds.
+    while (t < 60.0 && n <= 100000001) {
+        // Every five seconds indicate that it's still thinking and report variance.
+        t = Time();
+        if (t > t1 + 5.0) {
+            printf("\nTime: %.0f seconds | Best variance so far = %.6f", t, E_best);
+            t1 = t;
+        }
+        // Update the Markov chain step counter.
+        n ++;
+        ProposeNeighbor(x, x_new);
+        double E_new = Energy(x_new);
+        DeltaE = E_new - E_current;
+
+        if (DeltaE < 0 || exp(-DeltaE / T) > MTUniform()) {
+            AcceptTransition = 1;
+            for (int i = 1; i <= Nstocks; i++) x[i] = x_new[i];
+            E_current = E_new;
+
+            if (E_current < E_best) {
+                for (int i = 1; i <= Nstocks; i++) x_best[i] = x[i];
+                E_best = E_current;
+            }
+        }
+    }
+    printf("\nBest portfolio found (variance = %.6f):\n", E_best);
+    for (int i = 1; i <= Nstocks; i++) {
+        printf("%-5s: %8.2f\n", ticker[i], x_best[i]);
+    }
+
+    free(x);
+    free(x_new);
+    free(x_best);
+}
+
+
+
+void AnalyticalMinimumVariance() {
+   int i, j;
+
+   // Allocate memory for e, Vinv, Vinv_e, and xb
+   double *e = (double *) calloc(Nstocks + 1, sizeof(double));
+   double **Vinv = Invert(V);
+   double *Vinv_e = (double *) calloc(Nstocks + 1, sizeof(double));
+   double *xb = (double *) calloc(Nstocks + 1, sizeof(double));
+
+   // Create e = [1, 1, ..., 1]
+   for (i = 1; i <= Nstocks; i++) e[i] = 1.0;
+
+   // Compute Vinv * e
+   for (i = 1; i <= Nstocks; i++) {
+       Vinv_e[i] = 0.0;
+       for (j = 1; j <= Nstocks; j++) {
+           Vinv_e[i] += Vinv[i][j] * e[j];
+       }
+   }
+
+   // Compute c = e^T * Vinv * e
+   double c = 0.0;
+   for (i = 1; i <= Nstocks; i++) {
+       c += e[i] * Vinv_e[i];
+   }
+
+   // Compute xb = (100/c) * Vinv * e
+   for (i = 1; i <= Nstocks; i++) {
+       xb[i] = (100.0 / c) * Vinv_e[i];
+   }
+
+   // Compute variance = xb^T * V * xb
+   double variance = 0.0;
+   for (i = 1; i <= Nstocks; i++) {
+       for (j = 1; j <= Nstocks; j++) {
+           variance += xb[i] * V[i][j] * xb[j];
+       }
+   }
+
+   // Output results
+   printf("\nAnalytical Minimum Variance Portfolio (variance = %.6f):\n", variance);
+   for (i = 1; i <= Nstocks; i++) {
+       printf("%-5s: %8.4f\n", ticker[i], xb[i]);
+   }
+
+   // Free memory
+   free(e);
+   free(Vinv_e);
+   free(xb);
+   free(Vinv);
+}
+
+
+
+int main () {
+
+   int i;
+
+   // Seed the RNG.
+   MTUniform ();
+
+   // Read in the tickers and covariance matrix.
+   GetData ();
+
+   // Show the tickers.
+   for (i = 1; i <= Nstocks; i++) {
+      printf (ticker[i]);
+   }
+   Pause ();
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Your Metropolis algorithm goes here...
+   // AnalyticalMinimumVariance();
+   Metropolis();
+
+   // Report the best-found portfolio and its variance here.
+
+   // Pause so the execution window does not close.
+   Exit ();
+
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Allocate space for and read in covariance matrix and stock tickers.
+////////////////////////////////////////////////////////////////////////////////
+void GetData () {
+
+   int i, j;
+   double V0;
+   char input[100];
+   FILE *fp;
+
+   // Allocate array space.
+   V = Array (Nstocks, Nstocks);
+
+   // Allocate space to hold ticker names; "ticker" is a global variable.
+   ticker = (char **) calloc (Nstocks+1, sizeof (char *));
+   for (i = 0; i <= Nstocks; i++) {
+      ticker[i] = (char *) calloc (10, sizeof (char));
+   }
+
+   // Read in the data.
+   fp = fopen ("V.txt", "r");
+   for (i = 1; i <= Nstocks; i++) {
+
+      // Read in stock i's covariance data.
+
+      // Name of the stock ticker.
+      fgets (ticker[i], 9, fp);
+
+      // The covariances for stock "i".
+      for (j = 1; j <= Nstocks; j++) {
+
+         // Read in V[i][j].
+         fgets (input, 99, fp);
+         sscanf (input, "%lf", &V0);
+
+         // Put data into the V array.
+         V[i][j] = V0;
+
+      }
+
+   }
+   fclose (fp);
+
+   return;
+
+}
+\end{lstlisting}
+\pagebreak
+
+Code for Problem 3:
+\begin{lstlisting}[language=c++]
+////////////////////////////////////////////////////////////////////////////////
+// This is starter code for Homework 6.
+////////////////////////////////////////////////////////////////////////////////
+
+// This function is found below.
+void GetData ();
+
+// "ticker" is a global variable.
+char **ticker;
+
+// The covariance matrix is a global variable.
+double **V;
+
+int Nstocks = 30;
+
+#include "Functions.h"
+
+// Computes the portfolio variance (energy) given portfolio weights x
+double Energy(double *x) {
+   double sum = 0.0;
+   for (int i = 1; i <= Nstocks; i++) {
+       for (int j = 1; j <= Nstocks; j++) {
+           sum += x[i] * V[i][j] * x[j]; //x^T V x
+       }
+   }
+   return sum;
+}
+
+//initializes a portfolio
+void InitializePortfolio(double *x) {
+    double total = 0.0;
+    for (int i = 1; i <= Nstocks; i++) {
+        x[i] = MTUniform();  // Random normal weights
+        total += x[i];
+    }
+    // Rescale so that sum is 100
+    for (int i = 1; i <= Nstocks; i++) {
+        x[i] = x[i] / total * 100.0;
+    }
+}
+
+void ProposeNeighbor(double *x, double *x_new) {
+    double delta = 0.2; // move delta dollars between two stocks
+    //pick 2 different stocks
+    int i = 1 + (int)(Nstocks * MTUniform());
+    int j = 1 + (int)(Nstocks * MTUniform());
+    while (j == i) {
+        j = 1 + (int)(Nstocks * MTUniform());
+    }
+    //copy the changes onto the new portfolio
+    for (int k = 1; k <= Nstocks; k++) {
+        x_new[k] = x[k];
+    }
+    //moves delta from one stock to another
+    x_new[i] += delta;
+    x_new[j] -= delta;
+}
+
+void Metropolis() {
+    double *x = (double *) calloc(Nstocks + 1, sizeof(double));       // current portfolio
+    double *x_new = (double *) calloc(Nstocks + 1, sizeof(double));   // proposed neighbor
+    double *best_x = (double *) calloc(Nstocks + 1, sizeof(double));  // best found
+
+    double E, E_min, E_new, DeltaE, T, U, p;
+    int i, a, b, step = 0, NextReport = 1000;
+    int proposals = 0, accepts = 0;
+
+    T = GetDouble("\nWhat is the temperature?... ");
+
+    // Initialize random portfolio with random weights
+    double total = 0.0;
+    for (i = 1; i <= Nstocks; i++) {
+        x[i] = 100 * MTUniform();
+        total += x[i];
+    }
+    for (i = 1; i <= Nstocks; i++) {
+        x[i] = x[i] * 100.0 / total;
+        best_x[i] = x[i];
+    }
+
+    E = Energy(x);
+    E_min = E;
+
+    double start = Time(), now = start, lastPrint = start;
+    printf("\nRunning Metropolis...\n");
+
+    while ((now - start) < 90.0 && proposals < 10000000) {
+        step++;
+        proposals++;
+        now = Time();
+
+        if (now - lastPrint >= 4.0) {
+            printf("Elapsed: %.1f sec | Steps: %d | Best variance: %.6f\n",
+                   now - start, proposals, E_min);
+            lastPrint = now;
+        }
+
+        // Copy current portfolio to proposed portfolio 
+        for (i = 1; i <= Nstocks; i++) x_new[i] = x[i];
+
+        // Pick two unique random stocks
+        a = 1 + (int)(MTUniform() * Nstocks);
+        b = a;
+        while (b == a) b = 1 + (int)(MTUniform() * Nstocks);
+
+        // Propose a new portfolio by shifting random epsilon weight
+        double epsilon = -1.0 + 2.0 * MTUniform();
+        x_new[a] += epsilon;
+        x_new[b] -= epsilon;
+
+        // Normalize so sum(x_new) = 100
+        double sum_new = 0.0;
+        for (i = 1; i <= Nstocks; i++) sum_new += x_new[i];
+        for (i = 1; i <= Nstocks; i++) x_new[i] = x_new[i] * 100.0 / sum_new;
+
+        // Reject if any weight is negative
+        int reject = 0;
+        for (i = 1; i <= Nstocks; i++) {
+            if (x_new[i] < 0) {
+                reject = 1;
+                break;
+            }
+        }
+
+        E_new = reject ? 1000 : Energy(x_new);
+        DeltaE = E_new - E;
+
+        int accept = 0;
+        if (DeltaE <= 0) {
+            accept = 1;
+        } else if (T > 0) {
+            p = exp(-DeltaE / T);
+            U = MTUniform();
+            if (U <= p) accept = 1;
+        }
+
+        if (accept) {
+            accepts++;
+            for (i = 1; i <= Nstocks; i++) x[i] = x_new[i];
+            E = E_new;
+            if (E < E_min) {
+                E_min = E;
+                for (i = 1; i <= Nstocks; i++) best_x[i] = x[i];
+            }
+        }
+
+        if (step == NextReport) {
+            double acceptanceRatio = (double)accepts / proposals;
+            printf("Step %d: Current variance = %.6f | Best = %.6f | Acceptance ratio = %.4f\n",
+                   step, E, E_min, acceptanceRatio);
+            NextReport *= 10;
+        }
+    }
+
+    // Final Output
+    double finalAcceptanceRatio = (double)accepts / proposals;
+    printf("\n\n--- Final Results ---\n");
+    printf("Total steps: %d\n", proposals);
+    printf("Acceptance ratio: %.4f\n", finalAcceptanceRatio);
+    printf("Best portfolio found (variance = %.6f):\n", E_min);
+    for (i = 1; i <= Nstocks; i++) {
+        double rounded = floor(best_x[i] * 100.0 + 0.5) / 100.0;
+        printf("%-5s: %8.2f\n", ticker[i], rounded);
+    }
+
+    free(x);
+    free(x_new);
+    free(best_x);
+}
+
+int main () {
+
+    int i;
+    printf ("\nI'll be done in 60 seconds. ");
+    // Seed the RNG.
+    MTUniform ();
+ 
+    // Read in the tickers and covariance matrix.
+    GetData ();
+ 
+    // Show the tickers.
+    for (i = 1; i <= Nstocks; i++) {
+       printf (ticker[i]);
+    }
+    Pause ();
+ 
+ 
+    /////////////////////////////////////////////////////////////////////////////
+    // Your Metropolis algorithm goes here...
+ 
+    Metropolis();
+ 
+    // Report the best-found portfolio and its variance here.
+ 
+    // Pause so the execution window does not close.
+    Exit ();
+ 
+ }
+ 
+ 
+ 
+ ////////////////////////////////////////////////////////////////////////////////
+ // Allocate space for and read in covariance matrix and stock tickers.
+ ////////////////////////////////////////////////////////////////////////////////
+ void GetData () {
+ 
+    int i, j;
+    double V0;
+    char input[100];
+    FILE *fp;
+ 
+    // Allocate array space.
+    V = Array (Nstocks, Nstocks);
+ 
+    // Allocate space to hold ticker names; "ticker" is a global variable.
+    ticker = (char **) calloc (Nstocks+1, sizeof (char *));
+    for (i = 0; i <= Nstocks; i++) {
+       ticker[i] = (char *) calloc (10, sizeof (char));
+    }
+ 
+    // Read in the data.
+    fp = fopen ("V.txt", "r");
+    for (i = 1; i <= Nstocks; i++) {
+ 
+       // Read in stock i's covariance data.
+ 
+       // Name of the stock ticker.
+       fgets (ticker[i], 9, fp);
+ 
+       // The covariances for stock "i".
+       for (j = 1; j <= Nstocks; j++) {
+ 
+          // Read in V[i][j].
+          fgets (input, 99, fp);
+          sscanf (input, "%lf", &V0);
+ 
+          // Put data into the V array.
+          V[i][j] = V0;
+ 
+       }
+ 
+    }
+    fclose (fp);
+ 
+    return;
+ 
+ }
+\end{lstlisting}
+\pagebreak
+
+Code for Problem 4:
+
+\begin{lstlisting}[language=c++]
+////////////////////////////////////////////////////////////////////////////////
+// This is starter code for Homework 6.
+////////////////////////////////////////////////////////////////////////////////
+
+// This function is found below.
+void GetData ();
+
+// "ticker" is a global variable.
+char **ticker;
+
+// The covariance matrix is a global variable.
+double **V;
+
+int Nstocks = 30;
+
+#include "Functions.h"
+
+// Computes the portfolio variance (energy) given portfolio weights x
+double Energy(double *x) {
+   double sum = 0.0;
+   for (int i = 1; i <= Nstocks; i++) {
+       for (int j = 1; j <= Nstocks; j++) {
+           sum += x[i] * V[i][j] * x[j]; //x^T V x
+       }
+   }
+   return sum;
+}
+
+//initializes a portfolio
+void InitializePortfolio(double *x) {
+    double total = 0.0;
+    for (int i = 1; i <= Nstocks; i++) {
+        x[i] = MTUniform();  // Random normal weights
+        total += x[i];
+    }
+    // Rescale so that sum is 100
+    for (int i = 1; i <= Nstocks; i++) {
+        x[i] = x[i] / total * 100.0;
+    }
+}
+
+void Metropolis() {
+    double *x = (double *) calloc(Nstocks + 1, sizeof(double));       // current portfolio
+    double *x_new = (double *) calloc(Nstocks + 1, sizeof(double));   // proposed neighbor
+    double *best_x = (double *) calloc(Nstocks + 1, sizeof(double));  // best found
+
+    double E, E_min, E_new, DeltaE, T, U, p;
+    int i, a, b, step = 0, NextReport = 1000;
+    int proposals = 0, accepts = 0;
+
+    T = GetDouble("\nWhat is the temperature?... ");
+
+    // Initialize random portfolio with random weights
+    double total = 0.0;
+    for (i = 1; i <= Nstocks; i++) {
+        x[i] = 100 * MTUniform();
+        total += x[i];
+    }
+    for (i = 1; i <= Nstocks; i++) {
+        x[i] = x[i] * 100.0 / total;
+        best_x[i] = x[i];
+    }
+
+    E = Energy(x);
+    E_min = E;
+
+    double start = Time(), now = start, lastPrint = start;
+    printf("\nRunning Metropolis...\n");
+
+    while ((now - start) < 90.0 && proposals < 10000000) {
+        step++;
+        proposals++;
+        now = Time();
+
+        if (now - lastPrint >= 4.0) {
+            printf("Elapsed: %.1f sec | Steps: %d | Best variance: %.6f\n",
+                   now - start, proposals, E_min);
+            lastPrint = now;
+        }
+
+        // Copy current portfolio to proposed portfolio 
+        for (i = 1; i <= Nstocks; i++) x_new[i] = x[i];
+
+        // Pick two unique random stocks
+        a = 1 + (int)(MTUniform() * Nstocks);
+        b = a;
+        while (b == a) b = 1 + (int)(MTUniform() * Nstocks);
+
+        // Propose a new portfolio by shifting random epsilon weight
+        double epsilon = -1.0 + 2.0 * MTUniform();
+        x_new[a] += epsilon;
+        x_new[b] -= epsilon;
+
+        // Normalize so sum(x_new) = 100
+        double sum_new = 0.0;
+        for (i = 1; i <= Nstocks; i++) sum_new += x_new[i];
+        for (i = 1; i <= Nstocks; i++) x_new[i] = x_new[i] * 100.0 / sum_new;
+
+        // Reject if any weight is negative
+        int reject = 0;
+        int smallCount = 0;
+
+        for (i = 1; i <= Nstocks; i++) {
+            if (x_new[i] < 0 || x_new[i] > 25.0) {
+                reject = 1;
+                break;
+            }
+            if (x_new[i] > 10.0) smallCount++;
+        }
+
+        if (smallCount > 3) reject = 1;
+
+
+        E_new = reject ? 1000 : Energy(x_new);
+        DeltaE = E_new - E;
+
+        int accept = 0;
+        if (DeltaE <= 0) {
+            accept = 1;
+        } else if (T > 0) {
+            p = exp(-DeltaE / T);
+            U = MTUniform();
+            if (U <= p) accept = 1;
+        }
+
+        if (accept) {
+            accepts++;
+            for (i = 1; i <= Nstocks; i++) x[i] = x_new[i];
+            E = E_new;
+            if (E < E_min) {
+                E_min = E;
+                for (i = 1; i <= Nstocks; i++) best_x[i] = x[i];
+            }
+        }
+
+        if (step == NextReport) {
+            double acceptanceRatio = (double)accepts / proposals;
+            printf("Step %d: Current variance = %.6f | Best = %.6f | Acceptance ratio = %.4f\n",
+                   step, E, E_min, acceptanceRatio);
+            NextReport *= 10;
+        }
+    }
+
+    // Final Output
+    double finalAcceptanceRatio = (double)accepts / proposals;
+    printf("\n\n--- Final Results ---\n");
+    printf("Total steps: %d\n", proposals);
+    printf("Acceptance ratio: %.4f\n", finalAcceptanceRatio);
+    printf("Best portfolio found (variance = %.6f):\n", E_min);
+    for (i = 1; i <= Nstocks; i++) {
+        double rounded = floor(best_x[i] * 100.0 + 0.5) / 100.0;
+        printf("%-5s: %8.2f\n", ticker[i], rounded);
+    }
+
+    free(x);
+    free(x_new);
+    free(best_x);
+}
+
+int main () {
+
+    int i;
+    // Seed the RNG.
+    MTUniform ();
+ 
+    // Read in the tickers and covariance matrix.
+    GetData ();
+ 
+    // Show the tickers.
+    for (i = 1; i <= Nstocks; i++) {
+       printf (ticker[i]);
+    }
+    Pause ();
+ 
+ 
+    /////////////////////////////////////////////////////////////////////////////
+    // Your Metropolis algorithm goes here...
+ 
+    Metropolis();
+ 
+    // Report the best-found portfolio and its variance here.
+ 
+    // Pause so the execution window does not close.
+    Exit ();
+ 
+ }
+ 
+ 
+ 
+ ////////////////////////////////////////////////////////////////////////////////
+ // Allocate space for and read in covariance matrix and stock tickers.
+ ////////////////////////////////////////////////////////////////////////////////
+ void GetData () {
+ 
+    int i, j;
+    double V0;
+    char input[100];
+    FILE *fp;
+ 
+    // Allocate array space.
+    V = Array (Nstocks, Nstocks);
+ 
+    // Allocate space to hold ticker names; "ticker" is a global variable.
+    ticker = (char **) calloc (Nstocks+1, sizeof (char *));
+    for (i = 0; i <= Nstocks; i++) {
+       ticker[i] = (char *) calloc (10, sizeof (char));
+    }
+ 
+    // Read in the data.
+    fp = fopen ("V.txt", "r");
+    for (i = 1; i <= Nstocks; i++) {
+ 
+       // Read in stock i's covariance data.
+ 
+       // Name of the stock ticker.
+       fgets (ticker[i], 9, fp);
+ 
+       // The covariances for stock "i".
+       for (j = 1; j <= Nstocks; j++) {
+ 
+          // Read in V[i][j].
+          fgets (input, 99, fp);
+          sscanf (input, "%lf", &V0);
+ 
+          // Put data into the V array.
+          V[i][j] = V0;
+ 
+       }
+ 
+    }
+    fclose (fp);
+ 
+    return;
+ 
+ }
+\end{lstlisting}
+\pagebreak
+
+Code for Problem 5 and 6:
+
+\begin{lstlisting}[language=]
+////////////////////////////////////////////////////////////////////////////////
+// This is starter code for Homework 6.
+////////////////////////////////////////////////////////////////////////////////
+
+// This function is found below.
+void GetData ();
+
+// "ticker" is a global variable.
+char **ticker;
+
+// The covariance matrix is a global variable.
+double **V;
+
+int Nstocks = 30;
+
+#include "Functions.h"
+
+// Computes the portfolio variance (energy) given portfolio weights x
+double Energy(double *x) {
+   double sum = 0.0;
+   for (int i = 1; i <= Nstocks; i++) {
+       for (int j = 1; j <= Nstocks; j++) {
+           sum += x[i] * V[i][j] * x[j]; //x^T V x
+       }
+   }
+   return sum;
+}
+
+//initializes a portfolio
+void InitializeSillyPortfolio(double *x) {
+    int i;
+    for (i = 1; i <= 10; i++) x[i] = 6.0;
+    for (i = 11; i <= 20; i++) x[i] = 4.0;
+    for (i = 21; i <= 30; i++) x[i] = 0.0;
+}
+
+
+void ProposeSillyNeighbor(double *x, double *x_new) {
+    int in_indices[30], out_indices[30];
+    int in_count = 0, out_count = 0;
+
+    for (int i = 1; i <= Nstocks; i++) {
+        if (x[i] == 0.0) {
+            out_indices[out_count++] = i;
+        } else {
+            in_indices[in_count++] = i;
+        }
+    }
+
+    // Choose one in and one out
+    int a = in_indices[(int)(MTUniform() * in_count)];
+    int b = out_indices[(int)(MTUniform() * out_count)];
+
+    // Copy current state
+    for (int i = 1; i <= Nstocks; i++) x_new[i] = x[i];
+
+    // Swap values
+    x_new[b] = x[a];
+    x_new[a] = 0.0;  
+}
+
+
+
+
+
+
+void SillyMetropolis() {
+    double *x = (double *) calloc(Nstocks + 1, sizeof(double));       // current portfolio
+    double *x_new = (double *) calloc(Nstocks + 1, sizeof(double));   // proposed neighbor
+    double *best_x = (double *) calloc(Nstocks + 1, sizeof(double));  // best found
+
+    double E, E_min, E_new, DeltaE, T, U, p;
+    int proposals = 0, accepts = 0;
+
+    T = GetDouble("\nWhat is the temperature?... ");
+
+    // Set the best portfolio to the initial one
+    InitializeSillyPortfolio(x);
+    for (int i = 1; i <= Nstocks; i++) best_x[i] = x[i];
+
+    // Calculate the initial energy (variance) of the current portfolio
+    E = Energy(x);
+
+    //set the minimum energy as the current one
+    E_min = E;
+
+    double start = Time(), now = start, lastPrint = start;
+    printf("\nRunning Silly Metropolis...\n");
+
+    //max runtime is either 90 seconds or 10000000 proposals
+    while ((now - start) < 90.0 && proposals < 10000000) {
+        proposals++;
+        now = Time();
+
+        //print progress every 4 seconds
+        if (now - lastPrint >= 4.0) {
+            printf("Elapsed: %.1f sec | Steps: %d | Best variance: %.6f\n",
+                   now - start, proposals, E_min);
+            lastPrint = now;
+        }
+        // Propose a new portfolio by swapping the contributions of two stocks
+        ProposeSillyNeighbor(x, x_new);
+
+        // Calculate the energy (variance) of the new portfolio
+        E_new = Energy(x_new);
+        DeltaE = E_new - E;
+
+        int accept = 0;
+        //check if the difference in energies is positive or negative
+        if (DeltaE <= 0) {
+            accept = 1;
+        } else if (T > 0) {
+            p = exp(-DeltaE / T);
+            U = MTUniform();
+            if (U <= p) accept = 1;
+        }
+        //if accepted, update portfolio
+        if (accept) {
+            accepts++;
+            for (int i = 1; i <= Nstocks; i++) x[i] = x_new[i];
+            E = E_new;
+            if (E < E_min) {
+                E_min = E;
+                for (int i = 1; i <= Nstocks; i++) best_x[i] = x[i];
+            }
+        }
+    }
+
+    printf("\n\n--- Final Silly Portfolio ---\n");
+    printf("Best silly portfolio (variance = %.6f):\n", E_min);
+    for (int i = 1; i <= Nstocks; i++) {
+        printf("%-5s: %5.2f\n", ticker[i], best_x[i]);
+    }
+    //free memory
+    free(x); free(x_new); free(best_x);
+}
+
+int main () {
+
+   int i;
+
+   // Seed the RNG.
+   MTUniform ();
+
+   // Read in the tickers and covariance matrix.
+   GetData ();
+
+   // Show the tickers.
+   for (i = 1; i <= Nstocks; i++) {
+      printf (ticker[i]);
+   }
+   Pause ();
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Your Metropolis algorithm goes here...
+   // AnalyticalMinimumVariance();
+   SillyMetropolis();
+
+   // Report the best-found portfolio and its variance here.
+
+   // Pause so the execution window does not close.
+   Exit ();
+
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Allocate space for and read in covariance matrix and stock tickers.
+////////////////////////////////////////////////////////////////////////////////
+void GetData () {
+
+   int i, j;
+   double V0;
+   char input[100];
+   FILE *fp;
+
+   // Allocate array space.
+   V = Array (Nstocks, Nstocks);
+
+   // Allocate space to hold ticker names; "ticker" is a global variable.
+   ticker = (char **) calloc (Nstocks+1, sizeof (char *));
+   for (i = 0; i <= Nstocks; i++) {
+      ticker[i] = (char *) calloc (10, sizeof (char));
+   }
+
+   // Read in the data.
+   fp = fopen ("V.txt", "r");
+   for (i = 1; i <= Nstocks; i++) {
+
+      // Read in stock i's covariance data.
+
+      // Name of the stock ticker.
+      fgets (ticker[i], 9, fp);
+
+      // The covariances for stock "i".
+      for (j = 1; j <= Nstocks; j++) {
+
+         // Read in V[i][j].
+         fgets (input, 99, fp);
+         sscanf (input, "%lf", &V0);
+
+         // Put data into the V array.
+         V[i][j] = V0;
+
+      }
+
+   }
+   fclose (fp);
+
+   return;
+
+}
+\end{lstlisting}
+\pagebreak
+
+\end{document}
+

@@ -1,0 +1,260 @@
+
+\documentclass{report}
+\setlength{\parindent}{0pt} % Sets the automatic indent size
+\usepackage{graphicx} % Required for inserting images
+\usepackage{pictex}   % Ensure PicTeX is available
+\usepackage{pgfplots}
+\usepackage{filecontents}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{xcolor}
+
+
+\lstset{
+    language=,
+    basicstyle=\ttfamily\tiny,
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{gray}\itshape,
+    stringstyle=\color{red},
+    numbers=none,
+    numberstyle=\tiny,
+    stepnumber=1,
+    breaklines=true,
+    frame=single,
+    captionpos=b,
+    showstringspaces=false
+}
+\begin{document}
+
+\setcounter{page}{1}
+\section*{Appendix:}
+Code for Problem 1:
+\begin{lstlisting}[language=C++]
+#include "Functions.h"
+
+int main () {
+
+   int i, n, N;
+   double s0, s1, s2, T, r, sigma, sigma2, sigma2_0, sigma2_1, sigma2_2;
+   double mu, alpha, beta, gamma, dt, Z, R1, R2, U, sigma2_LT;
+   double sum_payoffs, sum_payoffs_squared, payoff, error;
+   int M;
+
+   alpha = 0.007;
+   beta = 0.080;
+   gamma = 0.913;
+
+   sigma2_0 = 0.1610 * 0.1610; // (initial vol 21% annualized)
+   
+   // Time to expiration
+   T = 0.5;
+
+   // Risk-free interest rate
+   r = 0.05;
+
+   // Number of days to expiration (252 trading days per year)
+   N = (int)(252 * T);
+   dt = 1.0/252.0;
+
+   // Adjust risk-free rate to daily
+   r *= dt;
+
+   // Initial stock price
+   s0 = 116.99;
+
+   // Initial daily variance
+   sigma2_0 *= dt;
+
+   // Long-run annual variance and daily variance
+   sigma2_LT = 0.30 * 0.30;
+   sigma2_LT *= dt;
+
+   // Seed the RNG
+   MTUniform();
+
+   // Initialize accumulators
+   M = 0;
+   sum_payoffs = 0.0;
+   sum_payoffs_squared = 0.0;
+   error = 1.0;
+
+   // Begin simulations until standard error is below threshold
+   while (error >= 0.01) {
+
+      M++;
+
+      // Initialize s1, s2 and sigma2_1, sigma2_2
+      s1 = s0;
+      s2 = s0;
+      sigma2_1 = sigma2_0;
+      sigma2_2 = sigma2_0;
+
+      // Simulate day by day
+      for (i = 1; i <= N; i++) {
+         // Generate a uniform random number and convert it to standard normal
+         U = MTUniform();
+         Z = PsiInv(U);
+
+         // Calculate current volatilities (standard deviation)
+         double sigma1 = sqrt(sigma2_1);
+         double sigma2 = sqrt(sigma2_2);
+
+         // Calculate the drifts
+         double mu1 = r - 0.5 * sigma2_1;
+         double mu2 = r - 0.5 * sigma2_2;
+
+         // Compute returns for normal and antithetic paths
+         R1 = sigma1 * Z;
+         R2 = sigma2 * (-Z);
+
+         // Update stock prices
+         s1 *= exp(mu1 + R1);
+         s2 *= exp(mu2 + R2);
+
+         // Update volatilities
+         sigma2_1 = alpha * sigma2_LT + beta * R1*R1 + gamma * sigma2_1;
+         sigma2_2 = alpha * sigma2_LT + beta * R2*R2 + gamma * sigma2_2;
+      }
+
+      // Compute discounted average payoff using antithetic variates
+      payoff = 0.5 * exp(-0.05 * T) * (s1 + s2);
+
+      // Update accumulators
+      sum_payoffs += payoff;
+      sum_payoffs_squared += payoff * payoff;
+
+      // Update standard error 
+      if (M > 1) {
+         double mean = sum_payoffs / M;
+         double variance = (sum_payoffs_squared - M * mean * mean) / (M-1);
+         error = sqrt(variance / M);
+      }
+   }
+
+   // Final option value
+   double option_price = sum_payoffs / M;
+
+   printf("Simulations: %d\n", M);
+   printf("Estimated Option Value: %.5f\n", option_price);
+   printf("Standard Error: %.5f\n", error);
+
+   return 0;
+}
+\end{lstlisting}
+
+Code for Problems 2-4:
+\begin{lstlisting}[language=C++]
+#include "Functions.h"
+
+int main() {
+    int i, j, n, K;
+    const int NUM_PATHS = 100000;     // Number of Monte Carlo simulations
+    const int NUM_STRIKES = 11;       // Number of strike prices to evaluate
+    double S0 = 116.99;               // Initial stock price
+    double r = 0.05;                  // Risk-free interest rate
+    double T = 0.5;                   // Time to maturity (in years)
+    double sigma0 = 0.21;             // Initial volatility
+    double sigma_LT = 0.30;           // Long-term volatility
+    double dt = 1.0 / 252.0;          // Daily time step (252 trading days/year)
+    int N = (int)(T * 252);           // Total time steps in the simulation
+
+    // Volatility squared times dt (used for updating variance)
+    double sigma2_0 = sigma0 * sigma0 * dt;
+    double sigma2_LT = sigma_LT * sigma_LT * dt;
+
+    // Ask user which volatility model parameters to use
+    n = GetInteger("Which problem (2, 3, or 4) are you working on?... ");
+    double alpha, beta, gamma;
+
+    // Assign model parameters based on user selection
+    if (n == 2) {
+        alpha = 0.0; beta = 0.0; gamma = 1.0;         // Constant volatility
+    } else if (n == 3) {
+        alpha = 0.02; beta = 0.0; gamma = 0.98;       
+    } else {
+        alpha = 0.007; beta = 0.080; gamma = 0.913;   
+    }
+
+    // Define strike prices: 80, 90, ..., 180
+    double strikes[NUM_STRIKES];
+    for (i = 0; i < NUM_STRIKES; i++)
+        strikes[i] = 80 + i * 10;
+
+    MTUniform();  // Initialize random number generator
+
+    // Print table headers
+    printf("\nStrike     Price     95%% CI               ImpliedVol     LowerCI     UpperCI\n");
+    printf("======     =====     ==================    ===========    ========    ========\n");
+
+    // Loop over each strike price
+    for (i = 0; i < NUM_STRIKES; i++) {
+        K = strikes[i];
+        double sum = 0.0, sum2 = 0.0;
+
+        // Begin simulation
+        for (j = 0; j < NUM_PATHS; j++) {
+            // Start prices for two antithetic paths
+            double S1 = S0, S2 = S0;                     
+            double sigma2_1 = sigma2_0, sigma2_2 = sigma2_0;
+
+            // Simulate the entire path for both S1 and S2 (antithetic variates)
+            for (int t = 0; t < N; t++) {
+                double U = MTUniform();
+                double Z = PsiInv(U);                    // Standard normal variable
+                double Z_antithetic = -Z;                // Antithetic counterpart
+
+                double sigma1 = sqrt(sigma2_1);
+                double sigma2 = sqrt(sigma2_2);
+
+                double R1 = sigma1 * Z;
+                double R2 = sigma2 * Z_antithetic;
+
+                double mu1 = r * dt - 0.5 * sigma2_1;
+                double mu2 = r * dt - 0.5 * sigma2_2;
+
+                // Update asset prices using lognormal model
+                S1 *= exp(mu1 + R1);
+                S2 *= exp(mu2 + R2);
+
+                // Update variance using chosen volatility model
+                sigma2_1 = alpha * sigma2_LT + beta * R1 * R1 + gamma * sigma2_1;
+                sigma2_2 = alpha * sigma2_LT + beta * R2 * R2 + gamma * sigma2_2;
+            }
+
+            // Calculate payoffs for call options
+            double payoff1 = fmax(S1 - K, 0.0);
+            double payoff2 = fmax(S2 - K, 0.0);
+            double avg_payoff = 0.5 * (payoff1 + payoff2);  // Use antithetic average
+
+            sum += avg_payoff;
+            sum2 += avg_payoff * avg_payoff;
+        }
+
+        // Estimate expected value and standard deviation
+        double mean_undiscounted = sum / NUM_PATHS;
+        double stdev_undiscounted = sqrt((sum2 / NUM_PATHS - mean_undiscounted * mean_undiscounted) / NUM_PATHS);
+
+        // Discount the expected value and confidence interval bounds
+        double discount_factor = exp(-r * T);
+        double option_price = discount_factor * mean_undiscounted;
+        double conf_int_low = discount_factor * (mean_undiscounted - 1.96 * stdev_undiscounted);
+        double conf_int_high = discount_factor * (mean_undiscounted + 1.96 * stdev_undiscounted);
+
+        // Estimate implied volatilities for price and confidence bounds
+        double vol = ImpliedVol(T, S0, K, r, option_price);
+        double vol_low = ImpliedVol(T, S0, K, r, conf_int_low);
+        double vol_high = ImpliedVol(T, S0, K, r, conf_int_high);
+
+        // Output results for this strike
+        printf(" %5d    %7.4f   [%.4f, %.4f]   %10.4f   %8.4f   %8.4f\n",
+               K, option_price, conf_int_low, conf_int_high, vol, vol_low, vol_high);
+    }
+
+    return 0;
+}
+\end{lstlisting}
+
+
+\pagebreak
+
+\end{document}
