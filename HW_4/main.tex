@@ -1,0 +1,1050 @@
+\documentclass{report}
+\setlength{\parindent}{0pt} % Sets the automatic indent size
+\usepackage{graphicx} % Required for inserting images
+\usepackage{pictex}   % Ensure PicTeX is available
+\usepackage{pgfplots}
+\usepackage{filecontents}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{float}
+
+
+\lstset{
+    language=C++,
+    basicstyle=\ttfamily\tiny,
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{gray}\itshape,
+    stringstyle=\color{red},
+    numbers=none,
+    numberstyle=\tiny,
+    stepnumber=1,
+    breaklines=true,
+    frame=single,
+    captionpos=b,
+    showstringspaces=false
+}
+
+\title{HW\#4}
+\author{
+Elhaam Bhuiyan,
+Amir Samarxhiu,
+Shaqib Syed
+}
+\date{March 23, 2025}
+
+\begin{document}
+
+\maketitle
+
+\section*{Introduction}
+The 2016 U.S. presidential election exposed crucial limitations in probabilistic electoral forecasting, as several prominent models significantly overestimated Hillary Clinton's likelihood of winning. On election day, FiveThirtyEight projected a 71.4\% probability that Hillary Clinton would win the Electoral College, expecting her to secure 302 electoral votes. In reality, she only received 227 electoral votes due to unexpected state-by-state results and faithless electors. This unexpected result raised questions about the state-level probability estimates and independence assumptions used in such models. \\
+
+This report investigates whether FiveThirtyEight’s state-by-state probability estimates were consistent with the observed outcome using Monte Carlo simulation. We begin by testing the null hypothesis that state outcomes were independent and that the given probabilities accurately reflect electoral dynamics. Under this assumption, we estimate the probability that Clinton would win 233 or fewer electoral votes and determine whether such a result would be statistically surprising. \\
+
+Recognizing that the assumption of independence would oversimplify real-world electoral dynamics, we extend our analysis by incorporating a Gaussian copula model to introduce correlation among state outcomes. We calibrate the model's correlation parameter $\rho$ to match FiveThirtyEight's projected overall win probability of 71.4\% for Clinton. Finally, we use the actual election result to estimate the value of $\rho$ that best explains the observed outcome by computing a maximum likelihood estimate of the correlation. Doing this, we can assess the role of state-to-state dependence in election forecasting.
+\section*{Results}
+
+\subsection*{Problem 1:}
+In this problem, we test the null hypothesis $H_0$ that FiveThirtyEight's state election probabilities for Clinton were accurate, assuming independence across state outcomes. Given that Clinton won states totaling 233 electoral votes, we estimate $P(C \leq 233)$ under $H_0$ using Monte Carlo simulation with antithetic variance reduction. For each state $i$, we generate a uniform random variable $U_i \sim \text{Uniform}(0,1)$ and its antithetic counterpart $1 - U_i$, comparing each to the state-specific probability $p_i$. If $U_i \leq p_i$, then Clinton is considered to have won state $i$, and its electoral votes are added to $C$. In parallel, we simulate an antithetic scenario using the complementary uniform $1 - U_i$ to reduce estimator variance without introducing bias. \\
+
+We repeat simulations until the estimator achieves an error tolerance below 0.001 with 95\% confidence. The final estimate yields $P(C\leq 233) = 0.003850$, indicating that such an outcome would occur with only 0.3850\% probability under the null hypothesis. As this probability is below the 5\% significance threshold, we reject $H_0$ and conclude that FiveThirtyEight's probabilities, under state independence, are not consistent with the observed election result.
+
+\subsection*{Problem 2:}
+We investigate the effect of correlation on Clinton's probability of winning under the Gaussian copula model, assuming FiveThirtyEight's state-level probabilities are correct. We examine two extreme cases of the model: $\rho = 0$ and $\rho = 1$. When $\rho = 0$, all state outcomes are independent, matching the assumptions in Problem 1. When $\rho = 1$, all states are perfectly correlated and the outcome of the election is determined by a single uniform random variable. Using Monte Carlo simulation with antithetic variance reduction and 0.001 error tolerance at 95\% confidence, we estimate Clinton's probability of winning ($P(C\geq 270)$) under each case. \\
+
+Under independence ($\rho = 0$), the estimated probability of winning is 0.882111, while under maximal correlation ($\rho = 1$), it falls to 0.698815. These results indicate that Clinton's overall win probability under the independence model is higher than FiveThirtyEight's reported 71.4\%, while under maximal correlation it is lower. This suggests that a moderate level of correlation is needed to adjust the model to FiveThirtyEight's projection.
+
+\subsection*{Problem 3:}
+We estimate the correlation parameter $\rho$ in a Gaussian copula to match FiveThirtyEight's projected win probability for Clinton. The Gaussian copula introduces dependence between state outcomes by generating a correlated multivariate normal vector $Z \sim N(0, \Sigma)$, where the correlation matrix $\Sigma \in \mathbb{R}^{d \times d}$ is defined by:
+\[
+\Sigma_{ij} =
+\begin{cases}
+1, & \text{if } i = j \\
+\rho, & \text{if } i \ne j
+\end{cases}
+\]
+
+For each simulation, we generate a standard normal vector $Z$ by first sampling independent standard normals $M \sim N(0, I)$ and applying Cholesky decomposition to obtain $Z = L \cdot M$, where $L$ is the lower triangular matrix such that $\Sigma = LL^T$. The components of $Z$ are then transformed using the standard normal CDF $\Psi$, producing a vector of correlated uniforms $U = \Psi(Z) \sim C_{\rho}$, where $C_{\rho}$ denotes the Gaussian copula. \\
+
+Clinton wins a state if $U_i \leq p_i$, where $p_i$ is her state-level win probability. We apply antithetic variance reduction by simulating both $Z$ and $-Z$, and estimate $P(C \geq 270)$ using the average of both outcomes. We continue simulations until the estimator's 95\% confidence interval has a width less than 0.001. \\
+
+We eventually find that $\rho = 0.43$ yields an estimated win probability closest to FiveThirtyEight's projection of 71.4\%.
+
+\subsection*{Problem 4:}
+We conduct a second hypothesis test under the assumption that FiveThirtyEight's state-level win probabilities are accurate and that state outcomes are correlated with $\rho = 0.43$ as estimated in Problem 3. We estimate the probability $P(C \leq 233)$ using Monte Carlo simulation with antithetic variance reduction. The simulation continues until the 95\% confidence interval achieves an error tolerance below 0.001. \\
+
+The estimated probability is $P(C \leq 233) = 0.12$. Since this value exceeds the 5\% rejection threshold, we fail to reject the null hypothesis $H_0$. This result indicates that the observed outcome is statistically consistent with FiveThirtyEight's probabilities under the Gaussian copula model with estimated correlation parameter $\rho = 0.43$.
+
+\subsection*{Problem 5:}
+To determine which correlation parameter best matches the actual election outcome, where Clinton won 233 electoral votes, we estimated $P(C = 233)$ by computing $P(228 \leq C \leq 238)$. To do this, we conducted a search over $\rho \in [0, 1]$ to identify a reasonable range, then performed a narrower search of $\rho \in [0.40, 0.50]$ to reduce overall computational cost. For each value of $\rho$ in this range, we simulated $P(228 \leq C \leq 238)$ using antithetic variance reduction and ensuring a 95\% confidence interval with error below 0.0001. We find that the optimal correlation parameter was $\rho = 0.5$ with an estimated probability of 0.037479 (3.74\%), suggesting that stronger correlation between state outcomes was needed to explain the observed election results.
+
+
+
+\section*{Conclusion}
+In this study, we examined the validity of FiveThirtyEight's state-by-state election probabilities from the 2016 U.S. presidential election using hypothesis testing and Gaussian copula models. Our findings indicate that when assuming state independence ($\rho = 0$), the probability of a Clinton victory exceeded FiveThirtyEight’s estimate of 71.4\%, whereas perfect correlation ($\rho = 1$) yields a lower probability. By varying $\rho$, we determined that the value best aligning with FiveThirtyEight’s overall forecast was approximately $\rho \approx 0.43$, implying moderate positive correlation between state outcomes.  \\ 
+
+Using this calibrated correlation parameter, we tested the hypothesis that FiveThirtyEight’s state probabilities were correct by estimating $P[C \leq 233]$, the probability that Clinton would win 233 or fewer electoral votes. The results suggested we could not reject the null hypothesis, suggesting that the model remains statistically consistent with the observed outcome under moderate correlation.
+
+Furthermore, we estimated $\rho$ using a maximum likelihood approach based on the actual election result, yielding a value of 0.50, which deviated from our pre-election calibration. This discrepancy suggests the presence of factors unaccounted for in the original FiveThirtyEight model, e.g. shifts in voter behavior.  \\ 
+
+Overall, this study highlights the importance of dependence structures in election modeling and the potential limitations of assuming state independence and correlation. Future forecasting efforts may benefit from incorporating more sophisticated correlation structures to enhance predictive accuracy in closely contested elections.
+
+\section*{Contributions}
+The coding for this project was completed individually, and we compared our results for each problem to ensure consistency. After finalizing the code, we divided the report into three parts. Amir wrote the sections for Problems 1 and 2, Elhaam contributed the sections for Problems 3 and 4, and Shaqib completed the remainder of the report and editing. Throughout the process, we made sure to include sufficient detail, ensure proper formatting, and maintain clarity.
+
+\pagebreak
+
+\section*{Appendix}
+Problem 1:
+\begin{lstlisting}
+
+#include "Functions.h"
+
+int main () {
+
+   int i;
+   double E;
+   int ElectoralVotes[52];
+   double ClintonProbability[52];
+   double variance, sigma, z_score, epsilon, U, U_anti, win_prob, X, A,Z, Zbar, Z2bar, n, done, test, t_star, t, error; 
+
+
+   // The data below is the number of electoral college votes by state and
+   //   Clinton's win probability in percent as determined by projects.fivethirtyeight.com
+   //   the day of the election.  538.com had Clinton's probability of winning the
+   //   overall election (U.S. electoral college vote) at 71.4 percent.
+   ElectoralVotes[ 1] =     9; ClintonProbability[ 1] =   0.1;  // Alabama
+   ElectoralVotes[ 2] =     3; ClintonProbability[ 2] =  23.5;  // Alaska
+   ElectoralVotes[ 3] =    11; ClintonProbability[ 3] =  33.4;  // Arizona
+   ElectoralVotes[ 4] =     6; ClintonProbability[ 4] =   0.4;  // Arkansas
+   ElectoralVotes[ 5] =    55; ClintonProbability[ 5] = 100.0;  // California
+   ElectoralVotes[ 6] =     9; ClintonProbability[ 6] =  75.6;  // Colorado
+   ElectoralVotes[ 7] =     7; ClintonProbability[ 7] =  97.3;  // Connecticut
+   ElectoralVotes[ 8] =     3; ClintonProbability[ 8] =  91.5;  // Delaware
+   ElectoralVotes[ 9] =     3; ClintonProbability[ 9] = 100.0;  // D.C.
+   ElectoralVotes[10] =    29; ClintonProbability[10] =  55.1;  // Florida
+   ElectoralVotes[11] =    16; ClintonProbability[11] =  20.9;  // Georgia
+   ElectoralVotes[12] =     4; ClintonProbability[12] =  98.9;  // Hawaii
+   ElectoralVotes[13] =     4; ClintonProbability[13] =   0.9;  // Idaho
+   ElectoralVotes[14] =    20; ClintonProbability[14] =  98.3;  // Illinois
+   ElectoralVotes[15] =    11; ClintonProbability[15] =   2.5;  // Indiana
+   ElectoralVotes[16] =     6; ClintonProbability[16] =  30.2;  // Iowa
+   ElectoralVotes[17] =     6; ClintonProbability[17] =   2.6;  // Kansas
+   ElectoralVotes[18] =     8; ClintonProbability[18] =   0.4;  // Kentucky
+   ElectoralVotes[19] =     8; ClintonProbability[19] =   0.5;  // Louisiana
+   ElectoralVotes[20] =     4; ClintonProbability[20] =  82.6;  // Maine
+   ElectoralVotes[21] =    10; ClintonProbability[21] = 100.0;  // Maryland
+   ElectoralVotes[22] =    11; ClintonProbability[22] = 100.0;  // Massachusetts
+   ElectoralVotes[23] =    16; ClintonProbability[23] =  78.9;  // Michigan
+   ElectoralVotes[24] =    10; ClintonProbability[24] =  85.0;  // Minnesota
+   ElectoralVotes[25] =     6; ClintonProbability[25] =   2.2;  // Mississippi
+   ElectoralVotes[26] =    10; ClintonProbability[26] =   3.9;  // Missouri
+   ElectoralVotes[27] =     3; ClintonProbability[27] =   4.1;  // Montana
+   ElectoralVotes[28] =     5; ClintonProbability[28] =   2.3;  // Nebraska
+   ElectoralVotes[29] =     6; ClintonProbability[29] =  58.3;  // Nevada
+   ElectoralVotes[30] =     4; ClintonProbability[30] =  69.8;  // New Hampshire
+   ElectoralVotes[31] =    14; ClintonProbability[31] =  96.9;  // New Jersey
+   ElectoralVotes[32] =     5; ClintonProbability[32] =  82.6;  // New Mexico
+   ElectoralVotes[33] =    29; ClintonProbability[33] =  99.8;  // New York
+   ElectoralVotes[34] =    15; ClintonProbability[34] =  55.5;  // North Carolina
+   ElectoralVotes[35] =     3; ClintonProbability[35] =   2.3;  // North Dakota
+   ElectoralVotes[36] =    18; ClintonProbability[36] =  35.4;  // Ohio
+   ElectoralVotes[37] =     7; ClintonProbability[37] =   0.0;  // Oklahoma
+   ElectoralVotes[38] =     7; ClintonProbability[38] =  93.7;  // Oregon
+   ElectoralVotes[39] =    20; ClintonProbability[39] =  77.0;  // Pennsylvania
+   ElectoralVotes[40] =     4; ClintonProbability[40] =  93.2;  // Rhode Island
+   ElectoralVotes[41] =     9; ClintonProbability[41] =  10.3;  // South Carolina
+   ElectoralVotes[42] =     3; ClintonProbability[42] =   6.1;  // South Dakota
+   ElectoralVotes[43] =    11; ClintonProbability[43] =   2.7;  // Tennessee
+   ElectoralVotes[44] =    38; ClintonProbability[44] =   6.0;  // Texas
+   ElectoralVotes[45] =     6; ClintonProbability[45] =   3.3;  // Utah
+   ElectoralVotes[46] =     3; ClintonProbability[46] =  98.1;  // Vermont
+   ElectoralVotes[47] =    13; ClintonProbability[47] =  85.5;  // Virginia
+   ElectoralVotes[48] =    12; ClintonProbability[48] =  98.4;  // Washington
+   ElectoralVotes[49] =     5; ClintonProbability[49] =   0.3;  // West Virginia
+   ElectoralVotes[50] =    10; ClintonProbability[50] =  83.5;  // Wisconsin
+   ElectoralVotes[51] =     3; ClintonProbability[51] =   1.1;  // Wyoming
+
+   //seed random variable
+   MTUniform();
+   
+   //error torlerance
+   epsilon = 0.001;
+
+   // Print column headings for output to execution window.
+   printf ("\n");
+   printf ("         n     win_prob        +/-        t       t*\n");
+
+   // Initialize certain values.
+   Zbar = Z2bar = n = done = test = 0;
+
+   double votesClinton, votesClinton_anti;
+   Time ();
+
+   while (!done) {
+         votesClinton = votesClinton_anti = 0;
+        // Generate U(0,1) and its antithetic pair (1-U)
+        for (int j = 1; j < 52; j++) {
+            U = MTUniform();
+            U_anti = 1.0 - U;
+            if (U < ClintonProbability[j] / 100.0) {  // Compare with probability
+               votesClinton += ElectoralVotes[j];
+            }
+            if (U_anti < ClintonProbability[j] / 100.0) {  // Compare with probability
+               votesClinton_anti += ElectoralVotes[j];
+            }
+        }
+        // Compute the X and antithetic statistic
+        X = votesClinton <= 233 ? 1.0 : 0;
+        A = votesClinton_anti <= 233 ? 1.0 : 0;
+
+        //compute Z
+        Z = (X + A) / 2.0;
+        // Update the simulation counters and the sample moments
+        n++;
+        test++;
+        Zbar = ((n - 1) * Zbar + Z) / n;
+        Z2bar = ((n - 1) * Z2bar + Z * Z) / n;
+
+        //calculate variance, z_score, standard deviation (sigma), and error
+        variance = Z2bar - Zbar * Zbar;
+        sigma = sqrt(variance / n);
+        z_score = 1.96;  // For 95% confidence interval
+        error = z_score * sigma;
+
+        if (test == 20000) {
+
+         // Compute standard error and confidence interval
+         // Compute pi_hat and its 95% confidence interval.
+         win_prob = Zbar;
+         E = error;
+
+         // Compute the elapsed time and estimate the time of completion.
+         t = Time ();
+         t_star = t * pow (E / epsilon, 2);
+
+         // Report
+         printf ("%10.0f   %8.6f   %8.6f %8.3f %8.3f\n", n, win_prob, E, t, t_star);
+
+         // Reset the "test" counter and see if error tolerance is met.
+         test = 0;
+         if (E <= epsilon) {
+            done = 1;
+         }
+      } 
+   }
+   // Calculate the probability P[C <= 233]
+   printf("Estimated P[C <= 233] = %.6f\n", win_prob);
+
+   // Check if we reject H0
+   if (win_prob < 0.05) {
+       printf("Reject H0: P[C <= 233] is less than 5%%.\n");
+   } else {
+       printf("Fail to reject H0: P[C <= 233] is greater than or equal to 5%%.\n");
+   }
+
+   //Pause before closing up the window.
+   Exit ();
+}
+\end{lstlisting}
+\pagebreak
+
+Problem 2:
+\begin{lstlisting}
+
+#include "Functions.h"
+
+int main () {
+
+   int i;
+   double E;
+   int ElectoralVotes[52];
+   double ClintonProbability[52];
+   double alpha = 0.05;
+   double variance, sigma, z_score, epsilon, U, U_anti, win_prob, X, A, C,D,Z, Zbar, Z2bar, n, done, test, t_star, t, error; 
+   double threshold = 270.0;
+   double rho; 
+
+
+   // The data below is the number of electoral college votes by state and
+   //   Clinton's win probability in percent as determined by projects.fivethirtyeight.com
+   //   the day of the election.  538.com had Clinton's probability of winning the
+   //   overall election (U.S. electoral college vote) at 71.4 percent.
+   ElectoralVotes[ 1] =     9; ClintonProbability[ 1] =   0.1;  // Alabama
+   ElectoralVotes[ 2] =     3; ClintonProbability[ 2] =  23.5;  // Alaska
+   ElectoralVotes[ 3] =    11; ClintonProbability[ 3] =  33.4;  // Arizona
+   ElectoralVotes[ 4] =     6; ClintonProbability[ 4] =   0.4;  // Arkansas
+   ElectoralVotes[ 5] =    55; ClintonProbability[ 5] = 100.0;  // California
+   ElectoralVotes[ 6] =     9; ClintonProbability[ 6] =  75.6;  // Colorado
+   ElectoralVotes[ 7] =     7; ClintonProbability[ 7] =  97.3;  // Connecticut
+   ElectoralVotes[ 8] =     3; ClintonProbability[ 8] =  91.5;  // Delaware
+   ElectoralVotes[ 9] =     3; ClintonProbability[ 9] = 100.0;  // D.C.
+   ElectoralVotes[10] =    29; ClintonProbability[10] =  55.1;  // Florida
+   ElectoralVotes[11] =    16; ClintonProbability[11] =  20.9;  // Georgia
+   ElectoralVotes[12] =     4; ClintonProbability[12] =  98.9;  // Hawaii
+   ElectoralVotes[13] =     4; ClintonProbability[13] =   0.9;  // Idaho
+   ElectoralVotes[14] =    20; ClintonProbability[14] =  98.3;  // Illinois
+   ElectoralVotes[15] =    11; ClintonProbability[15] =   2.5;  // Indiana
+   ElectoralVotes[16] =     6; ClintonProbability[16] =  30.2;  // Iowa
+   ElectoralVotes[17] =     6; ClintonProbability[17] =   2.6;  // Kansas
+   ElectoralVotes[18] =     8; ClintonProbability[18] =   0.4;  // Kentucky
+   ElectoralVotes[19] =     8; ClintonProbability[19] =   0.5;  // Louisiana
+   ElectoralVotes[20] =     4; ClintonProbability[20] =  82.6;  // Maine
+   ElectoralVotes[21] =    10; ClintonProbability[21] = 100.0;  // Maryland
+   ElectoralVotes[22] =    11; ClintonProbability[22] = 100.0;  // Massachusetts
+   ElectoralVotes[23] =    16; ClintonProbability[23] =  78.9;  // Michigan
+   ElectoralVotes[24] =    10; ClintonProbability[24] =  85.0;  // Minnesota
+   ElectoralVotes[25] =     6; ClintonProbability[25] =   2.2;  // Mississippi
+   ElectoralVotes[26] =    10; ClintonProbability[26] =   3.9;  // Missouri
+   ElectoralVotes[27] =     3; ClintonProbability[27] =   4.1;  // Montana
+   ElectoralVotes[28] =     5; ClintonProbability[28] =   2.3;  // Nebraska
+   ElectoralVotes[29] =     6; ClintonProbability[29] =  58.3;  // Nevada
+   ElectoralVotes[30] =     4; ClintonProbability[30] =  69.8;  // New Hampshire
+   ElectoralVotes[31] =    14; ClintonProbability[31] =  96.9;  // New Jersey
+   ElectoralVotes[32] =     5; ClintonProbability[32] =  82.6;  // New Mexico
+   ElectoralVotes[33] =    29; ClintonProbability[33] =  99.8;  // New York
+   ElectoralVotes[34] =    15; ClintonProbability[34] =  55.5;  // North Carolina
+   ElectoralVotes[35] =     3; ClintonProbability[35] =   2.3;  // North Dakota
+   ElectoralVotes[36] =    18; ClintonProbability[36] =  35.4;  // Ohio
+   ElectoralVotes[37] =     7; ClintonProbability[37] =   0.0;  // Oklahoma
+   ElectoralVotes[38] =     7; ClintonProbability[38] =  93.7;  // Oregon
+   ElectoralVotes[39] =    20; ClintonProbability[39] =  77.0;  // Pennsylvania
+   ElectoralVotes[40] =     4; ClintonProbability[40] =  93.2;  // Rhode Island
+   ElectoralVotes[41] =     9; ClintonProbability[41] =  10.3;  // South Carolina
+   ElectoralVotes[42] =     3; ClintonProbability[42] =   6.1;  // South Dakota
+   ElectoralVotes[43] =    11; ClintonProbability[43] =   2.7;  // Tennessee
+   ElectoralVotes[44] =    38; ClintonProbability[44] =   6.0;  // Texas
+   ElectoralVotes[45] =     6; ClintonProbability[45] =   3.3;  // Utah
+   ElectoralVotes[46] =     3; ClintonProbability[46] =  98.1;  // Vermont
+   ElectoralVotes[47] =    13; ClintonProbability[47] =  85.5;  // Virginia
+   ElectoralVotes[48] =    12; ClintonProbability[48] =  98.4;  // Washington
+   ElectoralVotes[49] =     5; ClintonProbability[49] =   0.3;  // West Virginia
+   ElectoralVotes[50] =    10; ClintonProbability[50] =  83.5;  // Wisconsin
+   ElectoralVotes[51] =     3; ClintonProbability[51] =   1.1;  // Wyoming
+
+    //seed random variable
+    MTUniform();
+   //error torlerance
+   epsilon = 0.001;
+   rho = GetInteger("What should rho be 1 or 0....");
+   // Print column headings for output to execution window.
+   printf ("\n");
+   printf ("         n     win_prob        +/-        t       t*\n");
+   // Initialize certain values.
+   Zbar = Z2bar = n = done = test = 0;
+
+   // New counter for P[C <= 233]
+   int count_C_less_than_233 = 0;
+   double votesClinton, votesClinton_anti;
+   Time ();
+
+   while (!done) {
+        if (rho == 1){
+            votesClinton = votesClinton_anti = 0;
+            U = MTUniform();
+            U_anti = 1.0 - U;
+         
+            // Generate U(0,1) and its antithetic pair (1-U)
+            for (int j = 1; j < 52; j++) {
+                if (U < ClintonProbability[j] / 100.0) {  // Compare with probability
+                   votesClinton += ElectoralVotes[j];
+                }
+                if (U_anti < ClintonProbability[j] / 100.0) {  // Compare with probability
+                   votesClinton_anti += ElectoralVotes[j];
+                }
+            }
+        }
+        if (rho == 0){
+            votesClinton = votesClinton_anti = 0;
+            for (int j = 1; j < 52; j++) {
+                double U_j = MTUniform();  // Generate U separately for each state
+                double U_j_anti = 1.0 - U_j;
+                if (U_j < ClintonProbability[j] / 100.0) {  
+                    votesClinton += ElectoralVotes[j];
+                }
+                if (U_j_anti < ClintonProbability[j] / 100.0) {  
+                    votesClinton_anti += ElectoralVotes[j];
+                }
+            }
+        }
+        //rho=0 >71.4%
+        //rho=1 <71.4%
+        // Compute the X and antithetic statistic
+        if (votesClinton>=threshold){X = 1;}
+        else {X = 0;}
+        if (votesClinton_anti>=threshold){A = 1;}
+        else {A = 0;}
+
+        //compute Z
+        Z = (X + A) / 2.0;
+        // Update the simulation counters and the sample moments
+        n++;
+        test++;
+        Zbar = ((n - 1) * Zbar + Z) / n;
+        Z2bar = ((n - 1) * Z2bar + Z * Z) / n;
+
+        //calculate variance, z_score, standard deviation (sigma), and error
+        variance = Z2bar - Zbar * Zbar;
+        sigma = sqrt(variance / n);
+        z_score = 1.96;  // For 95% confidence interval
+        error = z_score * sigma;
+
+        if (test == 20000) {
+
+         // Compute standard error and confidence interval
+         // Compute pi_hat and its 95% confidence interval.
+         win_prob = Zbar;
+         E = error;
+
+         // Compute the elapsed time and estimate the time of completion.
+         t = Time ();
+         t_star = t * pow (E / epsilon, 2);
+
+         // Report
+         printf ("%10.0f   %8.6f   %8.6f %8.3f %8.3f\n", n, win_prob, E, t, t_star);
+
+         // Reset the "test" counter and see if error tolerance is met.
+         test = 0;
+         if (E <= epsilon) {
+            done = 1;
+         }
+      } 
+   }
+   //Pause before closing up the window.
+   Exit ();
+}
+\end{lstlisting}
+\pagebreak
+
+Problem 3:
+\begin{lstlisting}
+
+#include "Functions.h"
+
+int i;
+double E;
+int ElectoralVotes[52];
+double ClintonProbability[52];
+double alpha = 0.05;
+double z_score = 1.96; // 95% confidence interval
+double variance, sigma, U, U_anti, win_prob, X, A, C,D,Z, Zbar, Z2bar, n, done, test, t_star, t, error; 
+double threshold = 270.0;
+double epsilon = 0.001;
+long a = 52;
+double **correlationMatrix, **choleskyMatrix, **standardNormals;
+
+
+// Generate correlated uniform variables from correlated normal variables
+void applyPsi(double *correlatedNormalVars, double *correlatedUniformVars) {
+    for (int i = 0; i < a; i++) {
+        correlatedUniformVars[i] = Psi(correlatedNormalVars[i]);  // Apply PsiInv to map to uniform
+    }
+}
+
+// Fix array indexing to start from 0 for both ElectoralVotes and ClintonProbability
+void computeClintonWinProbability(double rho, int electoralVotes[], double probabilities[]) {
+    Zbar = Z2bar = n = done = test = 0;
+    while (!done) {
+        double totalVotes = 0, totalVotes_anti = 0;
+        double M[a], M_anti[a]; // Independent Normal(0,1) variables
+        double correlatedNormalVars[a], correlatedNormalVars_anti[a]; // Correlated Normals
+        double correlatedUniformVars[a], correlatedUniformVars_anti[a]; // Correlated Uniform(0,1)
+
+        // Generate M independent standard normal variables
+        for (int i = 0; i < a; i++) {
+            U = MTUniform();
+            U_anti = 1 - U;
+            M[i] = PsiInv(U);      // Normal for U
+            M_anti[i] = PsiInv(U_anti);  // Normal for U_anti
+        }
+
+        // Create correlation matrix 
+        for (int i = 1; i <= a; i++) {
+            for (int j = 1; j <= a; j++) {
+                if (i == j) {
+                    correlationMatrix[i][j] = 1.0;
+                } else {
+                    correlationMatrix[i][j] = rho;
+                }
+            }
+        }
+        // for (int i = 0; i < a; i++) {
+        //     for (int j = 0; j < a; j++) {
+        //         printf("%f ", correlationMatrix[i][j]);
+        //     }
+        //     printf("\n");
+        // }
+        // Exit();
+        // Apply Cholesky decomposition
+        // printf("Rows: %d, Columns: %d\n", Rows(correlationMatrix), Columns(correlationMatrix));
+        // Exit();
+        choleskyMatrix = Cholesky(correlationMatrix);
+
+        // Apply Cholesky to generate correlated normal variables
+        for (int i = 1; i <= a; i++) {
+            correlatedNormalVars[i] = 0;
+            for (int j = 1; j <= a; j++) {
+                correlatedNormalVars[i] += choleskyMatrix[i][j] * M[j]; // Matrix multiplication
+            }
+        }
+
+        for (int i = 1; i <= a; i++) {
+            correlatedNormalVars_anti[i] = 0;
+            for (int j = 1; j <= a; j++) { // Fix loop starting at 0
+                correlatedNormalVars_anti[i] += choleskyMatrix[i][j] * M_anti[j]; // Matrix multiplication
+            }
+        }
+
+        // Convert correlated normals to correlated uniforms
+        applyPsi(correlatedNormalVars, correlatedUniformVars);
+        applyPsi(correlatedNormalVars_anti, correlatedUniformVars_anti);
+
+        // Use the correlated uniform variables to calculate total votes
+        for (int j = 1; j <= a; j++) {
+            double correlatedU = correlatedUniformVars[j];
+            double correlatedU_anti = 1.0 - correlatedU;
+
+            // Adjust for 0-indexing, using electoralVotes[j] and probabilities[j]
+            if (correlatedU < probabilities[j] / 100.0) {
+                totalVotes += electoralVotes[j];
+            }
+            if (correlatedU_anti < probabilities[j] / 100.0) {
+                totalVotes_anti += electoralVotes[j];
+            }
+        }
+
+        // Determine if Clinton or anti-Clinton wins based on total votes
+        if (totalVotes >= 270) { X = 1; } else { X = 0; }
+        if (totalVotes_anti >= 270) { A = 1; } else { A = 0; }
+
+        double Z = (X + A) / 2.0;
+
+        // Update statistics
+        n++;
+        test++;
+        Zbar = ((n - 1) * Zbar + Z) / n;
+        Z2bar = ((n - 1) * Z2bar + Z * Z) / n;
+        variance = Z2bar - Zbar * Zbar;
+        sigma = sqrt(variance / n);
+        error = z_score * sigma;
+
+        // Print results every 20000 iterations
+        if (test == 20000) {
+            win_prob = Zbar;
+            E = error;
+            t = Time();
+            t_star = t * pow(E / epsilon, 2);
+            printf("%10.0f   %8.3f   %8.6f %8.3f %8.3f\n", n, win_prob, E, t, t_star);
+            test = 0;
+            if (E <= epsilon) {
+                done = 1;
+            }
+        }
+    }
+}
+
+
+
+
+int main() {
+
+       // The data below is the number of electoral college votes by state and
+   //   Clinton's win probability in percent as determined by projects.fivethirtyeight.com
+   //   the day of the election.  538.com had Clinton's probability of winning the
+   //   overall election (U.S. electoral college vote) at 71.4 percent.
+   ElectoralVotes[ 1] =     9; ClintonProbability[ 1] =   0.1;  // Alabama
+   ElectoralVotes[ 2] =     3; ClintonProbability[ 2] =  23.5;  // Alaska
+   ElectoralVotes[ 3] =    11; ClintonProbability[ 3] =  33.4;  // Arizona
+   ElectoralVotes[ 4] =     6; ClintonProbability[ 4] =   0.4;  // Arkansas
+   ElectoralVotes[ 5] =    55; ClintonProbability[ 5] = 100.0;  // California
+   ElectoralVotes[ 6] =     9; ClintonProbability[ 6] =  75.6;  // Colorado
+   ElectoralVotes[ 7] =     7; ClintonProbability[ 7] =  97.3;  // Connecticut
+   ElectoralVotes[ 8] =     3; ClintonProbability[ 8] =  91.5;  // Delaware
+   ElectoralVotes[ 9] =     3; ClintonProbability[ 9] = 100.0;  // D.C.
+   ElectoralVotes[10] =    29; ClintonProbability[10] =  55.1;  // Florida
+   ElectoralVotes[11] =    16; ClintonProbability[11] =  20.9;  // Georgia
+   ElectoralVotes[12] =     4; ClintonProbability[12] =  98.9;  // Hawaii
+   ElectoralVotes[13] =     4; ClintonProbability[13] =   0.9;  // Idaho
+   ElectoralVotes[14] =    20; ClintonProbability[14] =  98.3;  // Illinois
+   ElectoralVotes[15] =    11; ClintonProbability[15] =   2.5;  // Indiana
+   ElectoralVotes[16] =     6; ClintonProbability[16] =  30.2;  // Iowa
+   ElectoralVotes[17] =     6; ClintonProbability[17] =   2.6;  // Kansas
+   ElectoralVotes[18] =     8; ClintonProbability[18] =   0.4;  // Kentucky
+   ElectoralVotes[19] =     8; ClintonProbability[19] =   0.5;  // Louisiana
+   ElectoralVotes[20] =     4; ClintonProbability[20] =  82.6;  // Maine
+   ElectoralVotes[21] =    10; ClintonProbability[21] = 100.0;  // Maryland
+   ElectoralVotes[22] =    11; ClintonProbability[22] = 100.0;  // Massachusetts
+   ElectoralVotes[23] =    16; ClintonProbability[23] =  78.9;  // Michigan
+   ElectoralVotes[24] =    10; ClintonProbability[24] =  85.0;  // Minnesota
+   ElectoralVotes[25] =     6; ClintonProbability[25] =   2.2;  // Mississippi
+   ElectoralVotes[26] =    10; ClintonProbability[26] =   3.9;  // Missouri
+   ElectoralVotes[27] =     3; ClintonProbability[27] =   4.1;  // Montana
+   ElectoralVotes[28] =     5; ClintonProbability[28] =   2.3;  // Nebraska
+   ElectoralVotes[29] =     6; ClintonProbability[29] =  58.3;  // Nevada
+   ElectoralVotes[30] =     4; ClintonProbability[30] =  69.8;  // New Hampshire
+   ElectoralVotes[31] =    14; ClintonProbability[31] =  96.9;  // New Jersey
+   ElectoralVotes[32] =     5; ClintonProbability[32] =  82.6;  // New Mexico
+   ElectoralVotes[33] =    29; ClintonProbability[33] =  99.8;  // New York
+   ElectoralVotes[34] =    15; ClintonProbability[34] =  55.5;  // North Carolina
+   ElectoralVotes[35] =     3; ClintonProbability[35] =   2.3;  // North Dakota
+   ElectoralVotes[36] =    18; ClintonProbability[36] =  35.4;  // Ohio
+   ElectoralVotes[37] =     7; ClintonProbability[37] =   0.0;  // Oklahoma
+   ElectoralVotes[38] =     7; ClintonProbability[38] =  93.7;  // Oregon
+   ElectoralVotes[39] =    20; ClintonProbability[39] =  77.0;  // Pennsylvania
+   ElectoralVotes[40] =     4; ClintonProbability[40] =  93.2;  // Rhode Island
+   ElectoralVotes[41] =     9; ClintonProbability[41] =  10.3;  // South Carolina
+   ElectoralVotes[42] =     3; ClintonProbability[42] =   6.1;  // South Dakota
+   ElectoralVotes[43] =    11; ClintonProbability[43] =   2.7;  // Tennessee
+   ElectoralVotes[44] =    38; ClintonProbability[44] =   6.0;  // Texas
+   ElectoralVotes[45] =     6; ClintonProbability[45] =   3.3;  // Utah
+   ElectoralVotes[46] =     3; ClintonProbability[46] =  98.1;  // Vermont
+   ElectoralVotes[47] =    13; ClintonProbability[47] =  85.5;  // Virginia
+   ElectoralVotes[48] =    12; ClintonProbability[48] =  98.4;  // Washington
+   ElectoralVotes[49] =     5; ClintonProbability[49] =   0.3;  // West Virginia
+   ElectoralVotes[50] =    10; ClintonProbability[50] =  83.5;  // Wisconsin
+   ElectoralVotes[51] =     3; ClintonProbability[51] =   1.1;  // Wyoming
+
+    //seed random variable
+    MTUniform();
+    //error torlerance
+    epsilon = 0.001;
+    // Print column headings for output to execution window.
+    printf ("\n");
+    printf ("         n     win_prob        +/-        t       t*\n");
+    // Initialize certain values.
+    Zbar = Z2bar = n = done = test = 0;
+    correlationMatrix = Array(a, a);
+    printf("Stored Rows: %d, Stored Columns: %d\n", (int)correlationMatrix[0][0], (int)correlationMatrix[0][1]);
+    choleskyMatrix = Array(a, a);
+    for (double rho = 0.40; rho < 0.50; rho += 0.01) { //orginally from 0.1 //to 0.9 until 71.4 was between 0.4 and 0.5
+        printf("\n");
+        printf("for rho: %f\n", rho);
+        printf("\n");
+        computeClintonWinProbability(rho, ElectoralVotes, ClintonProbability);
+    }
+    Exit();
+}
+\end{lstlisting}
+\pagebreak
+
+Problem 4:
+\begin{lstlisting}
+
+#include "Functions.h"
+
+int i;
+double E;
+int ElectoralVotes[52];
+double ClintonProbability[52];
+double alpha = 0.05;
+double z_score = 1.96; // 95% confidence interval
+double variance, sigma, U, U_anti, win_prob, X, A, C,D,Z, Zbar, Z2bar, n, done, test, t_star, t, error; 
+double threshold = 270.0;
+double epsilon = 0.001;
+long a = 52;
+int lowVoteCount = 0;
+double **correlationMatrix, **choleskyMatrix, **standardNormals;
+
+
+// Generate correlated uniform variables from correlated normal variables
+void applyPsi(double *correlatedNormalVars, double *correlatedUniformVars) {
+    for (int i = 0; i < a; i++) {
+        correlatedUniformVars[i] = Psi(correlatedNormalVars[i]);  // Apply PsiInv to map to uniform
+    }
+}
+
+// Fix array indexing to start from 0 for both ElectoralVotes and ClintonProbability
+double computeClintonWinProbability(double rho, int electoralVotes[], double probabilities[]) {
+    Zbar = Z2bar = n = done = test = 0;
+    while (!done) {
+        double totalVotes = 0, totalVotes_anti = 0;
+        double M[a], M_anti[a]; // Independent Normal(0,1) variables
+        double correlatedNormalVars[a], correlatedNormalVars_anti[a]; // Correlated Normals
+        double correlatedUniformVars[a], correlatedUniformVars_anti[a]; // Correlated Uniform(0,1)
+
+        // Generate M independent standard normal variables
+        for (int i = 0; i < a; i++) {
+            U = MTUniform();
+            U_anti = 1 - U;
+            M[i] = PsiInv(U);      // Normal for U
+            M_anti[i] = PsiInv(U_anti);  // Normal for U_anti
+        }
+
+        // Create correlation matrix 
+        for (int i = 1; i <= a; i++) {
+            for (int j = 1; j <= a; j++) {
+                if (i == j) {
+                    correlationMatrix[i][j] = 1.0;
+                } else {
+                    correlationMatrix[i][j] = rho;
+                }
+            }
+        }
+
+        choleskyMatrix = Cholesky(correlationMatrix);
+
+        // Apply Cholesky to generate correlated normal variables
+        for (int i = 1; i <= a; i++) {
+            correlatedNormalVars[i] = 0;
+            for (int j = 1; j <= a; j++) {
+                correlatedNormalVars[i] += choleskyMatrix[i][j] * M[j]; // Matrix multiplication
+            }
+        }
+
+        for (int i = 1; i <= a; i++) {
+            correlatedNormalVars_anti[i] = 0;
+            for (int j = 1; j <= a; j++) { // Fix loop starting at 0
+                correlatedNormalVars_anti[i] += choleskyMatrix[i][j] * M_anti[j]; // Matrix multiplication
+            }
+        }
+
+        // Convert correlated normals to correlated uniforms
+        applyPsi(correlatedNormalVars, correlatedUniformVars);
+        applyPsi(correlatedNormalVars_anti, correlatedUniformVars_anti);
+
+        // Use the correlated uniform variables to calculate total votes
+        for (int j = 1; j <= a; j++) {
+            double correlatedU = correlatedUniformVars[j];
+            double correlatedU_anti = 1.0 - correlatedU;
+
+            // Adjust for 0-indexing, using electoralVotes[j] and probabilities[j]
+            if (correlatedU < probabilities[j] / 100.0) {
+                totalVotes += electoralVotes[j];
+            }
+            if (correlatedU_anti < probabilities[j] / 100.0) {
+                totalVotes_anti += electoralVotes[j];
+            }
+        }
+
+        // Determine if Clinton or anti-Clinton wins based on total votes
+        if (totalVotes <= 233) { X = 1; } else { X = 0; }
+        if (totalVotes_anti <= 233) { A = 1; } else { A = 0; }
+        double Z = (X + A) / 2.0;
+
+        // Update statistics
+        n++;
+        test++;
+        Zbar = ((n - 1) * Zbar + Z) / n;
+        Z2bar = ((n - 1) * Z2bar + Z * Z) / n;
+        variance = Z2bar - Zbar * Zbar;
+        sigma = sqrt(variance / n);
+        error = z_score * sigma;
+
+        // Print results every 20000 iterations
+        if (test == 20000) {
+            win_prob = Zbar;
+            E = error;
+            t = Time();
+            t_star = t * pow(E / epsilon, 2);
+            printf("%10.0f   %8.3f   %8.6f %8.3f %8.3f\n", n, win_prob, E, t, t_star);
+            test = 0;
+            if (E <= epsilon) {
+                done = 1;
+            }
+        }
+    }
+    return win_prob;
+}
+
+
+
+
+int main() {
+
+       // The data below is the number of electoral college votes by state and
+   //   Clinton's win probability in percent as determined by projects.fivethirtyeight.com
+   //   the day of the election.  538.com had Clinton's probability of winning the
+   //   overall election (U.S. electoral college vote) at 71.4 percent.
+   ElectoralVotes[ 1] =     9; ClintonProbability[ 1] =   0.1;  // Alabama
+   ElectoralVotes[ 2] =     3; ClintonProbability[ 2] =  23.5;  // Alaska
+   ElectoralVotes[ 3] =    11; ClintonProbability[ 3] =  33.4;  // Arizona
+   ElectoralVotes[ 4] =     6; ClintonProbability[ 4] =   0.4;  // Arkansas
+   ElectoralVotes[ 5] =    55; ClintonProbability[ 5] = 100.0;  // California
+   ElectoralVotes[ 6] =     9; ClintonProbability[ 6] =  75.6;  // Colorado
+   ElectoralVotes[ 7] =     7; ClintonProbability[ 7] =  97.3;  // Connecticut
+   ElectoralVotes[ 8] =     3; ClintonProbability[ 8] =  91.5;  // Delaware
+   ElectoralVotes[ 9] =     3; ClintonProbability[ 9] = 100.0;  // D.C.
+   ElectoralVotes[10] =    29; ClintonProbability[10] =  55.1;  // Florida
+   ElectoralVotes[11] =    16; ClintonProbability[11] =  20.9;  // Georgia
+   ElectoralVotes[12] =     4; ClintonProbability[12] =  98.9;  // Hawaii
+   ElectoralVotes[13] =     4; ClintonProbability[13] =   0.9;  // Idaho
+   ElectoralVotes[14] =    20; ClintonProbability[14] =  98.3;  // Illinois
+   ElectoralVotes[15] =    11; ClintonProbability[15] =   2.5;  // Indiana
+   ElectoralVotes[16] =     6; ClintonProbability[16] =  30.2;  // Iowa
+   ElectoralVotes[17] =     6; ClintonProbability[17] =   2.6;  // Kansas
+   ElectoralVotes[18] =     8; ClintonProbability[18] =   0.4;  // Kentucky
+   ElectoralVotes[19] =     8; ClintonProbability[19] =   0.5;  // Louisiana
+   ElectoralVotes[20] =     4; ClintonProbability[20] =  82.6;  // Maine
+   ElectoralVotes[21] =    10; ClintonProbability[21] = 100.0;  // Maryland
+   ElectoralVotes[22] =    11; ClintonProbability[22] = 100.0;  // Massachusetts
+   ElectoralVotes[23] =    16; ClintonProbability[23] =  78.9;  // Michigan
+   ElectoralVotes[24] =    10; ClintonProbability[24] =  85.0;  // Minnesota
+   ElectoralVotes[25] =     6; ClintonProbability[25] =   2.2;  // Mississippi
+   ElectoralVotes[26] =    10; ClintonProbability[26] =   3.9;  // Missouri
+   ElectoralVotes[27] =     3; ClintonProbability[27] =   4.1;  // Montana
+   ElectoralVotes[28] =     5; ClintonProbability[28] =   2.3;  // Nebraska
+   ElectoralVotes[29] =     6; ClintonProbability[29] =  58.3;  // Nevada
+   ElectoralVotes[30] =     4; ClintonProbability[30] =  69.8;  // New Hampshire
+   ElectoralVotes[31] =    14; ClintonProbability[31] =  96.9;  // New Jersey
+   ElectoralVotes[32] =     5; ClintonProbability[32] =  82.6;  // New Mexico
+   ElectoralVotes[33] =    29; ClintonProbability[33] =  99.8;  // New York
+   ElectoralVotes[34] =    15; ClintonProbability[34] =  55.5;  // North Carolina
+   ElectoralVotes[35] =     3; ClintonProbability[35] =   2.3;  // North Dakota
+   ElectoralVotes[36] =    18; ClintonProbability[36] =  35.4;  // Ohio
+   ElectoralVotes[37] =     7; ClintonProbability[37] =   0.0;  // Oklahoma
+   ElectoralVotes[38] =     7; ClintonProbability[38] =  93.7;  // Oregon
+   ElectoralVotes[39] =    20; ClintonProbability[39] =  77.0;  // Pennsylvania
+   ElectoralVotes[40] =     4; ClintonProbability[40] =  93.2;  // Rhode Island
+   ElectoralVotes[41] =     9; ClintonProbability[41] =  10.3;  // South Carolina
+   ElectoralVotes[42] =     3; ClintonProbability[42] =   6.1;  // South Dakota
+   ElectoralVotes[43] =    11; ClintonProbability[43] =   2.7;  // Tennessee
+   ElectoralVotes[44] =    38; ClintonProbability[44] =   6.0;  // Texas
+   ElectoralVotes[45] =     6; ClintonProbability[45] =   3.3;  // Utah
+   ElectoralVotes[46] =     3; ClintonProbability[46] =  98.1;  // Vermont
+   ElectoralVotes[47] =    13; ClintonProbability[47] =  85.5;  // Virginia
+   ElectoralVotes[48] =    12; ClintonProbability[48] =  98.4;  // Washington
+   ElectoralVotes[49] =     5; ClintonProbability[49] =   0.3;  // West Virginia
+   ElectoralVotes[50] =    10; ClintonProbability[50] =  83.5;  // Wisconsin
+   ElectoralVotes[51] =     3; ClintonProbability[51] =   1.1;  // Wyoming
+
+    //seed random variable
+    MTUniform();
+    // Print column headings for output to execution window.
+    printf ("\n");
+    printf ("         n     win_prob        +/-        t       t*\n");
+    // Initialize certain values.
+    Zbar = Z2bar = n = done = test = 0;
+    correlationMatrix = Array(a, a);
+    printf("Stored Rows: %d, Stored Columns: %d\n", (int)correlationMatrix[0][0], (int)correlationMatrix[0][1]);
+    choleskyMatrix = Array(a, a);
+    double rho = 0.43;
+    double superlowVoteCount = computeClintonWinProbability(rho, ElectoralVotes, ClintonProbability);
+    //compute probability P(C ≤ 233)
+    // Print result
+    printf("\nP(C ≤ 233) = %f\n", superlowVoteCount);
+    // Hypothesis test
+    if (superlowVoteCount < 0.05) {
+        printf("H0 is rejected at the 5%% significance level.\n");
+    } else {
+        printf("H0 is NOT rejected.\n");
+    }
+    Exit();
+}
+\end{lstlisting}
+\pagebreak
+
+Problem 5:
+\begin{lstlisting}
+
+#include "Functions.h"
+
+int i;
+double E;
+int ElectoralVotes[52];
+double ClintonProbability[52];
+double alpha = 0.05;
+double z_score = 1.96; // 95% confidence interval
+double variance, sigma, U, U_anti, win_prob, X, A, C,D,Z, Zbar, Z2bar, n, done, test, t_star, t, error; 
+double threshold = 270.0;
+double epsilon = 0.0001;
+int a = 52;
+int lowVoteCount = 0;
+double **correlationMatrix, **choleskyMatrix, **standardNormals;
+
+
+// Generate correlated uniform variables from correlated normal variables
+void applyPsi(double *correlatedNormalVars, double *correlatedUniformVars) {
+    for (int i = 0; i < a; i++) {
+        correlatedUniformVars[i] = Psi(correlatedNormalVars[i]);  // Apply PsiInv to map to uniform
+    }
+}
+
+// Fix array indexing to start from 0 for both ElectoralVotes and ClintonProbability
+double computeClintonWinProbability(double rho, int electoralVotes[], double probabilities[]) {
+    Zbar = Z2bar = n = done = test = 0;
+    while (!done) {
+        double totalVotes = 0, totalVotes_anti = 0;
+        double M[a], M_anti[a]; // Independent Normal(0,1) variables
+        double correlatedNormalVars[a], correlatedNormalVars_anti[a]; // Correlated Normals
+        double correlatedUniformVars[a], correlatedUniformVars_anti[a]; // Correlated Uniform(0,1)
+
+        // Generate M independent standard normal variables
+        for (int i = 0; i < a; i++) {
+            U = MTUniform();
+            U_anti = 1 - U;
+            M[i] = PsiInv(U);      // Normal for U
+            M_anti[i] = PsiInv(U_anti);  // Normal for U_anti
+        }
+
+        // Create correlation matrix 
+        for (int i = 1; i <= a; i++) {
+            for (int j = 1; j <= a; j++) {
+                if (i == j) {
+                    correlationMatrix[i][j] = 1.0;
+                } else {
+                    correlationMatrix[i][j] = rho;
+                }
+            }
+        }
+
+        choleskyMatrix = Cholesky(correlationMatrix);
+
+        // Apply Cholesky to generate correlated normal variables
+        for (int i = 1; i <= a; i++) {
+            correlatedNormalVars[i] = 0;
+            for (int j = 1; j <= a; j++) {
+                correlatedNormalVars[i] += choleskyMatrix[i][j] * M[j]; // Matrix multiplication
+            }
+        }
+
+        for (int i = 1; i <= a; i++) {
+            correlatedNormalVars_anti[i] = 0;
+            for (int j = 1; j <= a; j++) { // Fix loop starting at 0
+                correlatedNormalVars_anti[i] += choleskyMatrix[i][j] * M_anti[j]; // Matrix multiplication
+            }
+        }
+
+        // Convert correlated normals to correlated uniforms
+        applyPsi(correlatedNormalVars, correlatedUniformVars);
+        applyPsi(correlatedNormalVars_anti, correlatedUniformVars_anti);
+
+        // Use the correlated uniform variables to calculate total votes
+        for (int j = 1; j <= a; j++) {
+            double correlatedU = correlatedUniformVars[j];
+            double correlatedU_anti = 1.0 - correlatedU;
+
+            // Adjust for 0-indexing, using electoralVotes[j] and probabilities[j]
+            if (correlatedU < probabilities[j] / 100.0) {
+                totalVotes += electoralVotes[j];
+            }
+            if (correlatedU_anti < probabilities[j] / 100.0) {
+                totalVotes_anti += electoralVotes[j];
+            }
+        }
+
+        // Determine if Clinton or anti-Clinton wins based on total votes
+        if (totalVotes <= 238 && totalVotes >= 228) { X = 1; } else { X = 0; }
+        if (totalVotes_anti <= 238 && totalVotes_anti >= 228) { A = 1; } else { A = 0; }
+        double Z = (X + A) / 2.0;
+
+        // Update statistics
+        n++;
+        test++;
+        Zbar = ((n - 1) * Zbar + Z) / n;
+        Z2bar = ((n - 1) * Z2bar + Z * Z) / n;
+        variance = Z2bar - Zbar * Zbar;
+        sigma = sqrt(variance / n);
+        error = z_score * sigma;
+
+        // Print results every 10000 iterations
+        if (test == 10000) {
+            win_prob = Zbar;
+            E = error;
+            t = Time();
+            t_star = t * pow(E / epsilon, 2);
+            printf("%10.0f   %8.3f   %8.6f %8.3f %8.3f\n", n, win_prob, E, t, t_star);
+            test = 0;
+            if (E <= epsilon) {
+                done = 1;
+            }
+        }
+    }
+    return win_prob;
+}
+
+
+
+
+int main() {
+
+       // The data below is the number of electoral college votes by state and
+   //   Clinton's win probability in percent as determined by projects.fivethirtyeight.com
+   //   the day of the election.  538.com had Clinton's probability of winning the
+   //   overall election (U.S. electoral college vote) at 71.4 percent.
+   ElectoralVotes[ 1] =     9; ClintonProbability[ 1] =   0.1;  // Alabama
+   ElectoralVotes[ 2] =     3; ClintonProbability[ 2] =  23.5;  // Alaska
+   ElectoralVotes[ 3] =    11; ClintonProbability[ 3] =  33.4;  // Arizona
+   ElectoralVotes[ 4] =     6; ClintonProbability[ 4] =   0.4;  // Arkansas
+   ElectoralVotes[ 5] =    55; ClintonProbability[ 5] = 100.0;  // California
+   ElectoralVotes[ 6] =     9; ClintonProbability[ 6] =  75.6;  // Colorado
+   ElectoralVotes[ 7] =     7; ClintonProbability[ 7] =  97.3;  // Connecticut
+   ElectoralVotes[ 8] =     3; ClintonProbability[ 8] =  91.5;  // Delaware
+   ElectoralVotes[ 9] =     3; ClintonProbability[ 9] = 100.0;  // D.C.
+   ElectoralVotes[10] =    29; ClintonProbability[10] =  55.1;  // Florida
+   ElectoralVotes[11] =    16; ClintonProbability[11] =  20.9;  // Georgia
+   ElectoralVotes[12] =     4; ClintonProbability[12] =  98.9;  // Hawaii
+   ElectoralVotes[13] =     4; ClintonProbability[13] =   0.9;  // Idaho
+   ElectoralVotes[14] =    20; ClintonProbability[14] =  98.3;  // Illinois
+   ElectoralVotes[15] =    11; ClintonProbability[15] =   2.5;  // Indiana
+   ElectoralVotes[16] =     6; ClintonProbability[16] =  30.2;  // Iowa
+   ElectoralVotes[17] =     6; ClintonProbability[17] =   2.6;  // Kansas
+   ElectoralVotes[18] =     8; ClintonProbability[18] =   0.4;  // Kentucky
+   ElectoralVotes[19] =     8; ClintonProbability[19] =   0.5;  // Louisiana
+   ElectoralVotes[20] =     4; ClintonProbability[20] =  82.6;  // Maine
+   ElectoralVotes[21] =    10; ClintonProbability[21] = 100.0;  // Maryland
+   ElectoralVotes[22] =    11; ClintonProbability[22] = 100.0;  // Massachusetts
+   ElectoralVotes[23] =    16; ClintonProbability[23] =  78.9;  // Michigan
+   ElectoralVotes[24] =    10; ClintonProbability[24] =  85.0;  // Minnesota
+   ElectoralVotes[25] =     6; ClintonProbability[25] =   2.2;  // Mississippi
+   ElectoralVotes[26] =    10; ClintonProbability[26] =   3.9;  // Missouri
+   ElectoralVotes[27] =     3; ClintonProbability[27] =   4.1;  // Montana
+   ElectoralVotes[28] =     5; ClintonProbability[28] =   2.3;  // Nebraska
+   ElectoralVotes[29] =     6; ClintonProbability[29] =  58.3;  // Nevada
+   ElectoralVotes[30] =     4; ClintonProbability[30] =  69.8;  // New Hampshire
+   ElectoralVotes[31] =    14; ClintonProbability[31] =  96.9;  // New Jersey
+   ElectoralVotes[32] =     5; ClintonProbability[32] =  82.6;  // New Mexico
+   ElectoralVotes[33] =    29; ClintonProbability[33] =  99.8;  // New York
+   ElectoralVotes[34] =    15; ClintonProbability[34] =  55.5;  // North Carolina
+   ElectoralVotes[35] =     3; ClintonProbability[35] =   2.3;  // North Dakota
+   ElectoralVotes[36] =    18; ClintonProbability[36] =  35.4;  // Ohio
+   ElectoralVotes[37] =     7; ClintonProbability[37] =   0.0;  // Oklahoma
+   ElectoralVotes[38] =     7; ClintonProbability[38] =  93.7;  // Oregon
+   ElectoralVotes[39] =    20; ClintonProbability[39] =  77.0;  // Pennsylvania
+   ElectoralVotes[40] =     4; ClintonProbability[40] =  93.2;  // Rhode Island
+   ElectoralVotes[41] =     9; ClintonProbability[41] =  10.3;  // South Carolina
+   ElectoralVotes[42] =     3; ClintonProbability[42] =   6.1;  // South Dakota
+   ElectoralVotes[43] =    11; ClintonProbability[43] =   2.7;  // Tennessee
+   ElectoralVotes[44] =    38; ClintonProbability[44] =   6.0;  // Texas
+   ElectoralVotes[45] =     6; ClintonProbability[45] =   3.3;  // Utah
+   ElectoralVotes[46] =     3; ClintonProbability[46] =  98.1;  // Vermont
+   ElectoralVotes[47] =    13; ClintonProbability[47] =  85.5;  // Virginia
+   ElectoralVotes[48] =    12; ClintonProbability[48] =  98.4;  // Washington
+   ElectoralVotes[49] =     5; ClintonProbability[49] =   0.3;  // West Virginia
+   ElectoralVotes[50] =    10; ClintonProbability[50] =  83.5;  // Wisconsin
+   ElectoralVotes[51] =     3; ClintonProbability[51] =   1.1;  // Wyoming
+
+    //seed random variable
+    MTUniform();
+    //error torlerance
+    epsilon = 0.001;
+    // Print column headings for output to execution window.
+    printf ("\n");
+    printf ("         n     win_prob        +/-        t       t*\n");
+    // Initialize certain values.
+    Zbar = Z2bar = n = done = test = 0;
+    correlationMatrix = Array(a, a);
+    choleskyMatrix = Array(a, a);
+    double best_rho = 0.0;
+    double max_prob = 0.0;
+    double step = 0.01;
+    for (double rho = 0.40; rho <= 0.50; rho += step) {
+        double prob = computeClintonWinProbability(rho, ElectoralVotes, ClintonProbability);
+        // Check if this rho is the best
+        if (prob > max_prob) {
+            max_prob = prob;
+            best_rho = rho;
+            printf("%f", best_rho);
+        }
+        printf("\n");
+    }
+    printf("%f", best_rho);
+    printf("\n");
+    printf("%f", max_prob);
+    printf("\n");
+    Exit();
+}
+\end{lstlisting}
+
+\end{document}

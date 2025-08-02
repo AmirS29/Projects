@@ -1,0 +1,221 @@
+\documentclass{report}
+\setlength{\parindent}{0pt} % Sets the automatic indent size
+\usepackage{graphicx} % Required for inserting images
+\usepackage{pictex}   % Ensure PicTeX is available
+\usepackage{pgfplots}
+\usepackage{filecontents}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{float}
+
+
+\lstset{
+    language=C++,
+    basicstyle=\ttfamily\tiny,
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{gray}\itshape,
+    stringstyle=\color{red},
+    numbers=none,
+    numberstyle=\tiny,
+    stepnumber=1,
+    breaklines=true,
+    frame=single,
+    captionpos=b,
+    showstringspaces=false
+}
+
+\title{HW\#5}
+\author{
+Elhaam Bhuiyan,
+Amir Samarxhiu,
+Shaqib Syed
+}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section*{Introduction}
+The Dow Jones Industrial Average (DJIA) is a widely followed stock market index that represents 30 large publicly traded companies in the United States. In this report, we conduct a Principal Component Analysis (PCA) on the daily percent price changes of these components throughout the year 2020. By examining the structure of the correlations among these stocks, we aim to identify the dominant factors driving their movements. \\
+
+The analysis begins with computing the covariance and correlation matrices to assess the relationships between stocks. We then extracted eigenvalues and eigenvectors of the covariance matrix to understand the primary sources of variance in the dataset. A special focus is given to the first principal component, which often represents a common market-wide factor, and we investigate its relationship with stock betas from the Capital Asset Pricing Model (CAPM). Through scatter plots and further statistical analysis, we interpret the significance of the first eigenvector and explore the economic meaning of the second principal component. \\
+
+This study provides insight into the underlying structure of DJIA stock movements and highlights sector-specific trends that influence the index. The results have implications for portfolio diversification, risk management, and understanding of market dynamics. \\
+\newpage
+
+\section*{Results}
+
+\subsection*{Problem 1:}
+We computed the sample covariance and correlation matrices for the 30 DJIA stocks. We reported below all pairs of stocks that have a correlation greater than 0.8 and negative correlations. From this table, there are only correlations above 0.8. This is expected as companies within the same sector are typically influenced by similar market factors, especially during 2020. Similarly, strong correlations between technology firms such as Apple (AAPL), Microsoft (MSFT), and NVIDIA (NVDA) are consistent with sector-wide market movements. No pairs exhibited negative correlation, suggesting that during the year 2020, stocks within the DJIA tended to move together rather than in opposite directions, likely due to broad market reactions during a turbulent year like 2020. \\
+
+    \begin{table}[h]
+    \centering
+    \caption{Pairs of stocks with correlation greater than 0.8}
+    \begin{tabular}{l l c}
+        \textbf{Ticker 1} & \textbf{Ticker 2} & \textbf{Correlation} \\
+        APPL  & MSFT  & 0.839 \\
+        AXP   & GS    & 0.850 \\
+        AXP   & HON   & 0.859 \\
+        AXP   & JPM   & 0.891 \\
+        AXP   & V     & 0.824 \\
+        CVX   & JPM   & 0.802 \\
+        GS    & HON   & 0.812 \\
+        GS    & JPM   & 0.890 \\
+        HD    & SHW   & 0.803 \\
+        HON   & JPM   & 0.829 \\
+        HON   & V     & 0.821 \\
+        MSFT  & NVDA  & 0.833 \\
+    \end{tabular}
+\end{table}
+\newpage
+ 
+\subsection*{Problem 2:}
+
+The first eigenvector is unique among the 30 eigenvectors in that it corresponds to the largest eigenvalue of the covariance matrix, meaning it explains the greatest amount of variance in the dataset. This eigenvector represents the primary mode of variation between all stocks in the Dow Jones Industrial Average (DJIA) for the year 2020. \\
+
+In particular, the largest component of the first eigenvector is associated with \textbf{Boeing (BA)} with an eigenvalue value of 0.338 respectively. This stock strongly contributed to the first principal component. The high values indicate that the returns on these companies' shares were more aligned with the main direction of market variation during 2020. \\
+
+The reason why the first eigenvector is special is because it captures the overall market movement. During turbulent periods like 2020, dominated by COVID-19 market shocks, most stocks tend to move together, either up or down, driven by broad economic forces rather than individual firm performance. This collective behavior causes the first eigenvalue to be significantly larger than the others and results in a first eigenvector where most entries have similar signs and magnitudes. \\
+
+In contrast, the remaining 29 eigenvectors correspond to smaller eigenvalues and explain more specific or localized variations, such as sector-specific trends or noise. These secondary eigenvectors often have mixed signs, representing oppositional behavior between different groups of stocks, and explain much less of the overall market variance. \\
+
+Thus, the first eigenvector captures the most significant and coherent movement across the market, dominated by major, system-wide influences, while the remaining eigenvectors capture finer, less impactful patterns. \\
+\newpage
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{l c}
+        \textbf{Ticker} & \textbf{Component Value} \\
+        AMGN & 0.124031 \\
+        AMZN & 0.093969 \\
+        AAPL & 0.173786 \\
+        AXP  & 0.278937 \\
+        BA   & 0.337776 \\
+        CAT  & 0.178191 \\
+        CRM  & 0.165118 \\
+        CSCO & 0.163975 \\
+        CVX  & 0.254505 \\
+        DIS  & 0.193193 \\
+        GS   & 0.230659 \\
+        HD   & 0.183345 \\
+        HON  & 0.199345 \\
+        IBM  & 0.171057 \\
+        JNJ  & 0.109678 \\
+        JPM  & 0.236739 \\
+        KO   & 0.138745 \\
+        MCD  & 0.166316 \\
+        MMM  & 0.145953 \\
+        MRK  & 0.110954 \\
+        MSFT & 0.174605 \\
+        NKE  & 0.164851 \\
+        NVDA & 0.205005 \\
+        PG   & 0.109906 \\
+        SHW  & 0.162665 \\
+        TRV  & 0.190124 \\
+        UNH  & 0.190361 \\
+        V    & 0.194444 \\
+        VZ   & 0.085494 \\
+        WMT  & 0.074421 \\
+    \end{tabular}
+\end{table}
+
+\newpage
+
+\subsection*{Problem 3:}
+
+In this problem, we estimated the betas $\beta_i$ of the 30 Dow Jones Industrial Average (DJIA) components using 2020 daily return data and produced a scatter plot of $(\beta_i, q_i)$, where $q_i$ is the $i$-th component of the first principal component eigenvector. The plot reveals a strong positive linear relationship between $\beta_i$ and $q_i$. This indicates that stocks with higher market sensitivity (higher $\beta$) have larger contributions to the first principal component. Since the first principal component captures the largest variation across stocks, this finding is consistent with expectations. The stock with the largest $q_i$ (and correspondingly the largest $\beta$) stands out significantly from the rest, highlighting its dominant sensitivity to the market factor. Thus, the first principal component eigenvector is closely aligned with the CAPM market factor, with stocks like \textbf{Boeing (BA)} contributing heavily. \\
+
+
+\begin{center}
+\beginpicture
+    % Adjust this so the plot fits well on the page
+    \setcoordinatesystem units <1.5 truein, 5 truein>
+    \setplotarea x from 0 to 2, y from 0 to 0.35
+
+    % Axes
+    \axis bottom label {$\beta$} ticks numbered from 0 to 2 by 0.5 /
+    \axis left label {$q^{(1)}$} ticks numbered from 0 to 0.35 by 0.05 /
+
+    % Plotting the points
+    \setplotsymbol ({\tiny$\bullet$})
+    \multiput {$\bullet$} at "Problem3.txt"
+
+\endpicture
+\end{center}
+\newpage
+
+\subsection*{Problem 4:}
+
+In this problem, for each stock $i$ and day $t$, we computed $x = \beta_i M_t$ and $y = Y_{1t} q_i$, where $M_t$ is the daily market return and $Y_{1t}$ is the first principal component on day $t$. The resulting scatter plot of $(x, y)$ shows points tightly clustered around the linear line ($y = x$), indicating a strong linear relationship between the two quantities. This demonstrates that the first principal component scaled by the eigenvector effectively reproduces the CAPM-based prediction $\beta_i M_t$. In essence, the first principal component behaves similarly to the market return itself, and projecting stock returns onto this component yields an excellent approximation of the stock's behavior under the CAPM. This confirms that PCA captures the systematic market risk, and the highest eigenvalue represents the market factor driving asset returns. \\
+
+\begin{center}
+\begin{tikzpicture}
+  \begin{axis}[
+    title={Scatter Plot: $\beta_i M_t$ vs First PC $\cdot$ $q_i$},
+    xlabel={$\beta_i M_t$},
+    ylabel={$Y_{1t} \cdot q_{i1}$},
+    width=12cm,
+    height=10cm,
+    grid=both,
+    axis equal,
+    xmin=-25, xmax=25,
+    ymin=-25, ymax=25,
+    enlargelimits=false,
+    scatter/classes={%
+      a={mark=*,blue} % You can define more styles if needed
+    }
+  ]
+    \addplot[only marks, mark size=0.8pt] 
+      table[x index=0, y index=1] {Problem4.txt};
+  \end{axis}
+\end{tikzpicture}
+\end{center}
+\newpage
+
+\subsection*{Problem 5:}
+The first eigenvector can be interpreted as a representation of systematic risk. Each component $q_i$ measures how sensitive stock $i$ is to the primary direction of variation across all assets. Since $q_i$ is strongly correlated with the stock’s $\beta_i$, the first eigenvector captures the systematic movement driven by the overall market. This suggests that PCA naturally extracts the market factor, identifying stocks' exposures to systematic risk without explicitly referencing the market index, consistent with the intuition from the Capital Asset Pricing Model (CAPM).\\
+
+
+\newpage
+
+\subsection*{Problem 6:}
+
+The second principal component corresponds to the eigenvector associated with the second largest eigenvalue of the covariance matrix. This component has significant contributions (in absolute value exceeding 0.15) from a range of stocks, including AMGN (Biopharmaceutical), AMZN and WMT (Retailing), AAPL, CRM, MSFT, and NVDA (Information Technology), AXP and JPM (Financial Services), BA (Aerospace \& Defense), and CVX (Petroleum). Among these, the Information Technology sector is most heavily represented, with four companies—AAPL, CRM, MSFT, and NVDA—exhibiting large negative coefficients. In contrast, BA and CVX have large positive coefficients, representing industrial and energy sectors. This suggests that the second principal component captures a sector-based divergence, contrasting growth-oriented sectors such as technology and retail (which performed well during the pandemic) with more cyclical sectors like aerospace and energy (which were negatively impacted by the economic downturn in 2020). Therefore, this component may reflect a rotation in investor sentiment between tech-driven growth and industrial recovery, highlighting broader economic trends during 2020. \\
+
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{l c l}
+        \textbf{Ticker} & \textbf{Sector} & \textbf{Coefficient} \\
+        AMGN & Biopharmaceutical & -0.207015 \\
+        AMZN & Retailing & -0.279417 \\
+        AAPL & IT & -0.244486 \\
+        AXP  & Financial Services & -0.251447 \\
+        BA   & Aerospace \& Defense & 0.479517 \\
+        CRM  & IT & -0.275782 \\
+        CVX  & Petroleum & 0.183427 \\
+        JPM  & Financial Services & 0.177562 \\
+        MSFT & IT & 0.258993 \\
+        NVDA & IT & -0.366408 \\
+        WMT  & Retailing & -0.186772 \\
+    \end{tabular}
+\end{table}
+
+
+\newpage
+
+\section*{Conclusion:}
+In this report,  we used PCA on DJIA stocks in 2020 and uncovered key patterns driving stock return variability. The first eigenvector, the one with the largest eigenvalue, The first principal component captures broad market movements and aligns closely with CAPM betas, effectively representing systematic risk. Most of the stocks had positive coefficients in the first principal component, indicating a systematic risk within 2020.
+
+The second principal component revealed sector-specific divergences, particularly between technology and industrial/energy stocks. The negative effects on IT and retail companies, compared to the positive effects on aerospace and petroleum sectors, show how the pandemic and economic recovery impacted different industries. This illustrates how PCA can help separate overall market risk from specific sector trends, making it a useful tool for managing risk, building portfolios, and understanding the economy.
+
+
+\section*{Contributions:}
+We all worked together on the coding of each problem to ensure that there were no discrepancies. We provided feedback and clarified the details throughout the process, refining our implementations until all discrepancies were resolved. Once we finalized the code, we worked on the report together, and we made sure to include sufficient detail, ensure proper formatting, and maintain clarity throughout.
+
+\pagebreak
+
+\end{document}

@@ -1,0 +1,497 @@
+\documentclass{report}
+\setlength{\parindent}{0pt} % Sets the automatic indent size
+\usepackage{graphicx} % Required for inserting images
+\usepackage{pictex}   % Ensure PicTeX is available
+\usepackage{pgfplots}
+\usepackage{filecontents}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{xcolor}
+
+
+\lstset{
+    language=C++,
+    basicstyle=\ttfamily\tiny,
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{gray}\itshape,
+    stringstyle=\color{red},
+    numbers=none,
+    numberstyle=\tiny,
+    stepnumber=1,
+    breaklines=true,
+    frame=single,
+    captionpos=b,
+    showstringspaces=false
+}
+
+\title{HW\#2}
+\author{
+Elhaam Bhuiyan,
+Brian Juca,
+Amir Samarxhiu,
+Shaqib Syed
+}
+\date{\today}
+
+\begin{document}
+\maketitle
+\section*{Introduction}
+Uniform random sampling is a foundational tool in probability modeling, providing the building block from which we can sample from a wide range of distributions and simulate stochastic processes. Many real-world applications in this course rely on using or transforming uniform random variables to generate structured randomness for simulations. This assignment will explore two major applications of uniform sampling: generating points within a specified region of the $xy$-plane and modeling credit rating transitions using a Markov chain. \\
+
+In the first part of our assignment, we use two different approaches to transform $\text{Uniform}(0, 1)$ random variables into a desired target distribution: the Accept/Reject method and the Inverse Transform method. We use both approaches to effectively draw points in the region bounded by the positive $x$-axis, the line $x = 1$, and the curve $y = x^2$. We then assess each method's efficiency, ease of implementation, and accuracy in sampling from this region. \\
+
+The second part of our assignment uses uniform random sampling to simulate a homogeneous Markov chain that tracks the evolution of a company's credit rating over a 10-year period. Using historical transition probabilities, we generate sequences of credit ratings for the company over this period, where each step in the process is determined by drawing from a uniform distribution and selecting the next state based on transition probabilities. This simulation framework allows us to estimate the expected present value of a credit default swap (CDS). Assuming a 5\% annual discount rate, we determine the fair annual premium of the CDS that ensures a neutral expected present value. \\
+
+These two applications demonstrate the versatility and importance of uniform random sampling in distribution sampling and stochastic simulation. They highlight its significance as a foundational technique in financial modeling, risk assessment, and probability theory.
+
+\pagebreak
+
+\section*{Results}
+%\vspace{2cm}
+%\noindent \textbf{Problem 1:}
+\subsection*{Problem 1: Accept/Reject Method} 
+
+The Accept/Reject method is a technique used to generate random samples from a target distribution by first sampling from a proposal distribution that is easier to sample from. A candidate sample is drawn from the proposal distribution is accepted with a probability proportional to the ratio of the target density to the proposal density and is rejected otherwise. In this case, we aim to generate points in the region bounded by:
+
+\begin{itemize}
+\item The positive $x$-axis.
+\item The vertical line $x=1$.
+\item The curve \( y = x^2 \).
+\end{itemize}
+
+To determine a proposal distribution, we consider simple distributions that are easy to sample from and completely contain the target region. A natural choice is the uniform distribution over the unit square:
+\[
+\tilde{f}(x,y) =
+\begin{cases}
+1, & 0 \leq x \leq 1, 0 \leq y \leq 1 \\
+0, & \text{otherwise}
+\end{cases}
+\]
+
+Since we seek a uniform distribution over the target region, the density function must be constant over this region. The area of the region is:
+\[
+A = \int_{0}^{1} x^2\ dx= \frac{1}{3}
+\]
+Thus, the target density function is:
+\[
+f(x,y)=\frac{1}{A} = 3,\quad \text{for } 0\leq x \leq 1, \quad 0 \leq y \leq x^2
+\]
+
+In the Accept/Reject framework, the acceptance probability is given by
+\[
+\alpha(x, y)= \frac{f(x,y)}{\tilde{f}(x,y)} \rho
+\]
+where $\rho$ is chosen so that $\alpha(x,y) \leq 1$ for all $(x, y)$. In our setup, we have $\tilde{f}(x, y)=1$ and $f(x,y)=3$ in the target region. This leads to
+\[
+\rho = \frac{1}{3}, \quad \alpha(x, y)= \frac{f(x,y)}{\tilde{f}(x,y)} \rho = \frac{3}{1}\cdot \frac{1}{3} = 1
+\]
+This means that any proposed point $(x, y)$ within $y \leq x^2$ is accepted with probability one. In this case, the acceptance function simplifies to 1 making the Accept/Reject step trivial. However, for more complex target distributions, this derivation is necessary to determine the optimal acceptance probability.
+
+\pagebreak
+To generate samples from this target region, we can use the following procedure:
+
+\begin{enumerate}
+    \item Generate $X \sim \text{Uniform}(0, 1)$ and $Y \sim \text{Uniform}(0, 1)$
+    \item Accept $(X, Y)$ with probability one if $Y \leq X^2$. Otherwise, reject.
+    \item Repeat until desired number of samples.
+\end{enumerate}
+
+Using this method, we generated 100,000,000 total samples with seed 2025. Below is a scatter plot of the first 1,000 samples, confirming that all accepted points lie in the specified target region.
+
+\vskip 20pt
+\hfill
+\centerline{\bf Accept/Reject Graph}
+\centerline{
+    \beginpicture
+        \setcoordinatesystem units <2 truein, 2 truein>
+        \setplotarea x from 0 to 1, y from  0 to 1
+        \setsolid\setplotsymbol ({$\cdot$})
+        \plot 0 0  1 0  1 1 /
+        \setquadratic
+        \plot 0 0  .5 .25  1 1 /
+        \put {$(1,0)$} [cl] at 1.05 0
+        \put {$(0,0)$} [cr] at -.05 0
+        \put {$(1,1)$} [cl] at 1.05 1
+        \multiput {$\cdot$} at "AR.txt"
+    \endpicture
+}
+\vskip 40pt
+
+%\noindent \textbf{Problem 2:}
+
+\subsection*{Problem 2: Inverse Transform Method}
+
+The Inverse Transform method is a technique that is used to generate random samples from a specified probability distribution by transforming a uniform random variable into a sample from the desired distribution using its cumulative distribution function (CDF). As in Problem 1, we seek to generate points in the region bounded by:
+\begin{itemize}
+\item The positive $x$-axis.
+\item The vertical line $x=1$.
+\item The curve \( y = x^2 \).
+\end{itemize}
+
+Since we seek a uniform distribution over the given region, its probability density must be constant. The total probability must sum to 1, so its density is determined by the area of the region. The area of the region is computed as:
+\[
+A = \int_0^1 x^2\ dx = \frac{1}{3}
+\]
+
+The probability mass must be evenly distributed over this area, so we can compute the joint probability density function as:
+\[
+f(x, y)=\frac{1}{A} = 3, \quad 0 \leq x \leq 1, \quad 0 \leq y \leq x^2
+\]
+
+To apply the Inverse Transform method, we must first express $X$ as a function of a uniform random variable. Since $X$ and $Y$ are jointly distributed, we need to compute the marginal distribution of $X$ by integrating over all possible values of $Y$ for a fixed $X$. This gives us the probability of observing each possible $X$, independent of $Y$. To do this, we compute:
+\[
+f_X(x)=\int_{0}^{x^2} f(x,y) \ dy = \int_{0}^{x^2} 3 \ dy = 3x^2, \quad 0 \leq x \leq 1
+\]
+
+We can now obtain the CDF of $X$ by integrating its PDF:
+\[
+F_X(x)=\int_{0}^{t} 3t^2 \ dt = x^3
+\]
+Now that we have computed its CDF, we can use the Inverse Transform method to sample $X$ directly using $ U \sim \text{Uniform}(0, 1)$ by:
+\[
+U = F_X(x) = x^3 \Rightarrow X = U^{1/3}
+\]
+Since $Y$ is constrained by $y = x^2$, we must determine how it is distributed given a fixed $X$. To do this, we can use the definition of a conditional density function to write that:
+\[
+f_{Y|X}(y|x)=\frac{f(x,y)}{f_X(x)}
+\]
+
+Since both of these components are known from earlier in the problem, we can directly compute the conditional density function of $Y$ as:
+\[
+f_{Y|X}(y|x)=\frac{f(x,y)}{f_X(x)} = \frac{3}{3x^2 } = \frac{1}{x^2}, \quad 0 \leq y \leq x^2
+\]
+
+The cumulative distribution function of $Y$ given $X$ can be computed by integrating its conditional density function:
+\[
+F_{Y|X}(y|x)=\int_{0}^{y} \frac{1}{x^2} \ dy = \frac{y}{x^2}
+\]
+Now that we have computed the conditional CDF for $Y$, we can use the Inverse Transform method to sample $Y$ using $V \sim \text{Uniform}(0, 1)$:
+\[
+V = F_{Y|X}(y|x) = \frac{y}{x^2} \Rightarrow Y = x^2 V
+\] \pagebreak
+
+Now that we have discussed how to sample both $X$ and $Y$ using uniform random variables, here is the procedure:
+\begin{enumerate}
+    \item Generate two independent uniform random variables: $U \sim \text{Uniform}(0, 1), V \sim \text{Uniform}(0, 1)$.
+    \item Compute $(X, Y)$ using $X = U^{1/3}$ and $Y = X^2V$
+    \item Repeat until desired number of samples.
+\end{enumerate}
+
+Using this method, we generate 100,000,000 total samples with seed 2025. Below is a scatter plot of the first 1,000 samples, confirming that all points lie in the specified target region.
+
+\vskip 20pt
+\hfill
+\centerline{\bf Inverse Transform Graph}
+\centerline{
+    \beginpicture
+        \setcoordinatesystem units <2 truein, 2 truein>
+        \setplotarea x from 0 to 1, y from  0 to 1
+        \setsolid\setplotsymbol ({$\cdot$})
+        \plot 0 0  1 0  1 1 /
+        \setquadratic
+        \plot 0 0  .5 .25  1 1 /
+        \put {$(1,0)$} [cl] at 1.05 0
+        \put {$(0,0)$} [cr] at -.05 0
+        \put {$(1,1)$} [cl] at 1.05 1
+        \multiput {$\cdot$} at "IT.txt"   %%% or "IT.txt", as appropriate
+    \endpicture
+}
+\vskip 40pt
+
+
+
+
+\subsubsection*{Comparison of Accept/Reject and Inverse Transform Methods}
+In our analysis, the Accept/Reject method had a longer runtime, completing in 4.9 seconds, while the Inverse Transform method completed in 3.8 seconds, making the Accept/Reject method approximately 29\% slower. Despite this, Accept/Reject was simpler to implement due to requiring less mathematical computations than Inverse Transform. \\
+
+In Accept/Reject, a point $(X, Y)$ is randomly generated from the unit square and then checked to see it falls within the valid region $0 \leq Y \leq X^2$. Since this region only occupies $\frac{1}{3}$ of the total area, each generated point only has a 33\% probability of being accepted. This means that, on average, two out of every three points are rejected, resulting in 300 million generated points to obtain 100 million valid samples. This significantly increases the total computational workload. \\
+
+On the other hand, Inverse Transform avoids unnecessary rejections by directly generating valid points. This method involves computing the CDF of $X$ and the conditional CDF of $Y$, applying the inverse transform to obtain the correct expressions for sampling $X$ and $Y$. While this method eliminates wasted computations from rejected samples, it is more difficult to implement because it requires computing CDFs and their inverses. Furthermore, it introduces additional computational overhead from computing $U^{1/3}$, which is significantly more expensive than basic arithmetic operations. \\
+
+Despite these challenges, Inverse Transform remains the more computationally efficient choice for this problem. However, if the rejection rates in Accept/Reject were lower, its performance might be more competitive.
+
+%\vspace{2cm}
+%\noindent \textbf{Problem 3:}
+\subsection*{Problem 3: Credit Rating Simulation}
+In this problem, we are asked to determine the fair annual premium $x$ for a \$100 million credit default swap (CDS) with a 10-year maturity. To achieve this, we will model RiskyCorp's credit rating evolution using a Markov chain and estimate the expected present value (PV) over 1 million independent simulations. The fair premium is the value of $x$ that ensures that the expected PV is zero. \\
+
+RiskyCorp's credit rating follows a homogeneous Markov chain, where each year the rating transitions according to the historical transition probabilities from US corporate credit ratings (1981 - 2023). \\
+
+Let $S_t$ denote RiskyCorp's credit rating at time $t$, where:
+\[
+S_t \in \{AAA, AA, A, BBB, BB, B, CCC, D, NR\}
+\]
+
+The probability of transitioning from state $i$ to state $j$ is given by the probability transition matrix $P$ such that:
+\[
+P(S_{t+1} = j | S_t=i) = p_{ij}
+\]
+
+The states $D$ (default) and $NR$ (no rating) are absorbing states, meaning that once RiskyCorp enters these states, it remains there permanently. \\
+
+To simulate the rating transitions, we convert the PTM into a CDF. Using the Inverse Transform method, we generate a uniform random variable $U \sim \text{Uniform}(0, 1)$ and determine the next rating $S_{t+1}$ by selecting the smallest index $j$ such that:
+\[
+U \leq \sum_{k=1}^{j} p_{ik}
+\]
+
+This process continues for up to 10 years, terminating early if RiskyCorp defaults (D) or becomes unrated (NR). \\
+
+For a given annual premium $x$, the total PV of a single contract simulation consists of two components: discounted premium payments and a potential default payment if RiskyCorp defaults before the 10-year term ends. Using these two components, we can write the PV of the contract as:
+\[
+PV = \sum_{t=0}^{T-1} \frac{x}{1.05^t} - \mathbf{1}_{\{T < 10\}}\frac{1}{1.05^T}
+\]
+
+If RiskyCorp survives all 10 years without default, the contract accumulates 10 discounted premium payments with no default payout. Otherwise, if a default occurs at time $T$, the company stops paying premiums and a one-time payment of \$100 million is made at the end of year $T$ discounted back to the present. We assume a 5\% annual discount rate throughout. \\
+
+To estimate the expected PV of the contract, we simulate the credit rating evolution and compute the PV for 1 million independent contract simulations. The expected PV is then calculated as:
+\[
+E[PV]=\frac{1}{N}\sum_{i=1}^{N} PV_i
+\]
+where $N$ is the number of simulations. \\
+
+From the structure of the PV formula, we notice that the first term (discounted premium payments) scales linearly with $x$ because each premium contributes a fixed fraction of $x$, weighted by a discount factor. The second term (expected discount payout) is independent of $x$ since the default payment is a fixed \$100 million and does not depend on the premium. \\
+
+Since the expectation operator is linear, and the PV formula is a linear function of $x$, the expectation of $PV$ must also be in linear in $x$. This gives us the relationship:
+\[
+E[PV] = mx + b
+\]
+where $m$ represents the sum of discounted premium payments per unit $x$ and $b$ represents the expected discounted default payout. \\
+
+To determine the fair premium $x$, we must find the value that ensures $E[PV] = 0$:
+\[
+E[PV] = mx + b = 0 \Rightarrow x=-\frac{b}{m}
+\]
+
+To estimate $m$ and $b$, we compute $E[PV]$ for two widely spaced trial premiums $x_1$ and $x_2$. We select these values such that they are sufficiently far apart to get a slope estimate, and ensure that $E[PV_1]$ and $E[PV_2]$ have different signs so that the linear approximation guarantees a zero crossing within the interval $[x_1, x_2]$. Based on prior testing, a reasonable choice is $x_1 = 10$ and $x_2 = 50$. \\
+
+
+Using the values of $E[PV_1] = mx_1+b$ and $E[PV_2] = mx_2+b$, we can fit a line and compute the coefficients $m$ and $b$ as:
+\begin{align*}
+m &= \frac{E[PV_2] - E[PV_1]}{x_2 - x_1} \\
+b &= E[PV_1] - mx_1
+\end{align*}
+
+Equipped with the coefficients of the line, we can now solve for the value of $x$ that sets $E[PV]=0$ using $x = -\frac{b}{m}$ as described earlier. \\
+
+Using 1 million simulations per trial premium and random seed 2025, we compute the fair premium for different initial credit ratings. The resulting fair premiums are:
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|c|c|}
+        \hline
+        \textbf{Initial Credit} & \textbf{Fair Premium} \\
+        \hline
+        0 & \$3.27 \\
+        1 & \$3.96 \\
+        2 & \$4.23 \\
+        3 & \$5.67 \\
+        4 & \$9.49 \\
+        5 & \$14.94 \\
+        6 & \$30.90 \\
+        \hline
+    \end{tabular}
+    \caption{Fair Premiums for Different Initial Credit Ratings}
+    \label{tab:expected_pv}
+\end{table}
+
+Fair premium values exhibit an increasing trend as initial credit ratings decline, aligning with our intuition that firms with lower credit ratings face higher default risk and thus require higher premiums to compensate for expected losses. We also notice that the premiums rise gradually for highly rated firms, and escalate sharply for lower-rated companies. This indicates that the increase in premiums is not uniform, and that firms with weaker ratings are not only more likely to default, but do so more rapidly and require higher premiums to offset the risk.
+
+\subsection*{Conclusion}
+In this report, we explored two major applications of uniform random sampling: sampling from a target region using Accept/Reject and Inverse Transform methods, and modeling credit rating transitions using a Markov chain to determine the fair premium value of a CDS. \\
+
+From the sampling problem, we found that the Inverse Transform method was computationally more efficient than Accept/Reject, which suffered from a low acceptance due to the small target region relative to the proposal distribution. While Accept/Reject is easier to implement, its efficiency is dependent on the geometry of the sampling region, which can make it a poor choice when acceptance probabilities are low. In contrast, Inverse Transform avoids unnecessary rejections but requires us to derive the inverse CDF of the target distribution, which can make it more complex to implement (or impossible when there is no closed-form solution). \\
+
+For the credit rating simulation, we modeled RiskyCorp's rating transitions using a homogeneous Markov chain, where the Inverse Transform method was used to sample each transition from the probability distribution of future states. Then, we applied Monte Carlo simulations to estimate the expected PV of a CDS contract over a 10-year period. We found that expected PV follows a linear relationship in the annual premium $x$, which allowed us to determine the fair premium by fitting a line between two estimated expected PV values and determining when $E[PV] = 0$. The computed fair premiums showed a negative relationship between initial credit rating and premium, that is, lower rated firms require higher premiums, and higher rated firms require lower premiums. Furthermore, we observed that this increase in premiums is not linear because premiums rise gradually for higher-rated firms and sharply for firms with weaker ratings. This implies that default risk accelerates as firms move deeper into lower credit ratings. \\
+
+Overall, we saw that uniform random sampling is a powerful tool in probability modeling and financial applications. We observed that though Accept/Reject and Inverse Transform both provide valid ways to sample from desired distributions, their efficiency depends on the specific distribution that is being sampled from. Furthermore, we saw that combining Monte Carlo simulations with a Markov chain model offered an effective and intuitive method of pricing credit risk derivatives. Although different simulation models serve different purposes, this report showed that the $\text{Uniform}(0, 1)$ random variable serves as a crucial building block to many of these models.
+
+\subsection*{Contributions}
+
+Everyone contributed to both the coding and the report, whether through comments, feedback, editing, writing, or coding. Amir worked on coding and writing the section related to Problem 1, specifically focusing on the Accept/Reject method. Elhaam wrote about Problem 2, explaining how the Inverse Transform method was implemented in our specific scenario. Brian handled the code and write-up for Problem 3, providing a detailed explanation of the reasoning behind the code. Shaqib wrote the remaining sections, ensured proper formatting, and helped everyone with the math and coding aspects of the report. \\
+
+We consistently reviewed other's work, providing feedback and clarifying details, particularly for Problems 2 and 3. We maintained daily communication to share updates, refine our report, and seek feedback on our progress.
+
+\pagebreak
+
+
+\section*{Appendix}
+Code for Part 1:
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+#include "Functions.h"
+
+int main() {
+    int n, N = 100000000;
+    double X, Y;
+    FILE *fp;
+
+    // Seed the RNG
+    MTUniform();
+
+    fp = fopen("AR.txt", "w");
+
+    Time();
+
+    // Generate 100 million points using Accept-Reject
+    for (n = 0; n < N; n++) {
+         if (n == N / 100) {
+               printf("Should be done in %.1f seconds.\n\n", 100.0 * Time());
+         }
+        
+        while (true) {
+            X = MTUniform(); // Generate X ~ Uniform(0, 1)
+            Y = MTUniform(); // Generate Y ~ Uniform(0, 1)
+            if (Y <= X * X) break; // Accept if Y falls under the curve Y = X^2
+        }
+        // Report 1000 points for viewing
+        if (n <= 1000) {
+            fprintf(fp, "%.6f %.6f\n", X, Y);
+        }
+    }
+
+    fclose(fp);
+    printf("Computations took %.1f seconds.\n", Time());
+    Exit();
+    return 0;
+}
+
+\end{lstlisting}
+\pagebreak
+Code for Part 2:
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+#include "Functions.h"
+
+int main () {
+
+   int n, N=100000000;
+   double X, Y;
+   FILE *fp;
+
+   // Seed the RNG.
+   MTUniform();
+
+   fp = fopen ("IT.txt", "w");
+
+   Time ();
+   // Generate 100 million points.
+   for (n = 0; n < N; n++) {
+
+      // Replace this with code that generates a point uniformly distributed
+      // on the interior of the region bounded by the positive x-axis, the
+      // line x=1, and the curve y=x^2.
+      // Inverse Transform method.
+      if (n == N/100) {
+         printf ("Should be done in %.1f seconds.\n\n", 100.0*Time());
+      }
+      // Generate X using Inverse Transform: X = U^(1/3)
+      X = pow(MTUniform(), 1.0/3.0); 
+      // Generate Y using conditional transformation: Y = X^2 * V
+      Y = X * X * MTUniform(); 
+      
+      // Report 1000 points for viewing to see if the code is working.
+      if (n <= 1000) {
+         fprintf (fp, "%.6f %.6f\n", X, Y);
+      }
+
+   }
+
+   fclose (fp);
+
+   printf ("Computations took %.1f seconds.\n", Time ());
+
+   Exit ();
+
+   return 0;
+}
+
+\end{lstlisting}
+\pagebreak
+Code for Part 3:
+\begin{lstlisting}
+#include "Functions.h"
+
+double credit_simulation(int initial_credit, double premium) {
+   // Probability matrix
+   double P[7][9] = {
+       {87.54, 8.55,  0.56,  0.04,  0.16,  0.04,  0.04,  0.00,  3.07},  
+       {0.48, 87.57,  7.20,  0.54,  0.07,  0.09,  0.03,  0.03,  3.99},  
+       {0.04,  1.55, 88.76,  5.12,  0.33,  0.13,  0.03,  0.06,  3.98},  
+       {0.01,  0.10,  3.23, 87.13,  3.44,  0.54,  0.09,  0.19,  5.27},  
+       {0.02,  0.04,  0.16,  4.61, 78.10,  7.43,  0.55,  0.68,  8.41},  
+       {0.00,  0.03,  0.08,  0.16,  4.16, 75.78,  4.99,  3.18, 11.62},  
+       {0.00,  0.00,  0.12,  0.18,  0.51, 12.62, 44.69, 27.83, 14.05}
+   };
+
+   // Convert percentages to cumulative probabilities
+   for (int i = 0; i < 7; i++) {
+      P[i][0] /= 100.0;
+      for (int j = 1; j < 9; j++) {
+         P[i][j] /= 100.0;
+         P[i][j] += P[i][j-1];
+      }
+   }
+
+   long N = 1000000; // Number of simulations
+   double total_pv = 0.0;
+
+   // 2) Loop over all simulations
+   for (int i = 1; i <= N; i++) {
+      double simulation_pv = 0.0; // Stores PV for one simulation
+      int current_state = initial_credit; // Start from initial credit rating
+      for (int year = 0; year < 10; year++) {
+         double u = MTUniform(); // Generate random uniform to simulate transition to next rating
+         int next_state = 0; 
+
+        // Find next credit rating using Inverse Transform
+        while (u > P[current_state][next_state]) {
+            next_state++;
+         }
+
+         simulation_pv += premium / pow(1.05, year); // Accumulate discounted premium payment
+
+         // If D or NR is reached, apply default payout
+         if (next_state == 7 || next_state == 8) {
+            double payout = -100.0; // Default payout amount
+            // Default payment occurs at the end of default year, so we discount by year + 1
+            simulation_pv += payout / pow(1.05, year + 1); 
+            break; // Since we defaulted, we terminate the contract
+         }
+         current_state = next_state; // Update state to new credit rating
+      }
+      total_pv += simulation_pv; // Accumulate PV across all simulations
+   }
+
+   return total_pv / N; // Compute average expected PV
+}
+
+int main() {
+   // 1) Seed the RNG and prompt user for initial credit rating
+   MTUniform();
+   int credit0 = GetInteger("What is the initial credit (0 through 6)?... ");
+
+   // 2) Define two widely spaced trial premium values
+   double x1 = 10.0;
+   double x2 = 50.0;
+
+   // 3) Compute the expected PV for both trial premiums
+   double expected_pv1 = credit_simulation(credit0, x1);
+   double expected_pv2 = credit_simulation(credit0, x2);
+
+   // 4) Fit the line: E[PV] = m*x + b
+   double m = (expected_pv2 - expected_pv1) / (x2 - x1);
+   double b = expected_pv1 - (m * x1);
+
+   // 5) Solve for fair premium (E[PV] = 0)
+   double fair_premium = -b / m;
+
+   printf("Expected PV(x1=%.2f) = %.4f\n", x1, expected_pv1);
+   printf("Expected PV(x2=%.2f) = %.4f\n", x2, expected_pv2);
+   printf("The annual premium that makes expected PV = 0 is: %.4f\n", fair_premium);
+
+   return 0;
+}
+\end{lstlisting}
+
+\end{document}
+
+
+

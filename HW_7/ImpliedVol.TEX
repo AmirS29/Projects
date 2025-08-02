@@ -1,0 +1,24 @@
+\documentclass[12pt]{article}\usepackage{pictex}\pagestyle{empty}
+\begin{document}
+\beginpicture
+\setcoordinatesystem units <.04truein, .2truein> 
+\setplotarea x from 75 to 180, y from  19 to 29
+\put {Implied Constant Volatility} at 130 30
+\axis left 
+ %label {(\%)} 
+ ticks   numbered from  19 to 29 by 1 
+ /
+\axis bottom
+ticks numbered from 80 to 180 by 10
+/
+% You can show an implied volatility like this:
+\put {$\scriptstyle\bullet$} at 80 22.0  
+% And its confidence interval like this:
+\setplotsymbol ({$\cdot$})
+\plot 80 21  80 23 / 
+\endpicture
+\vfill
+\end{document}
+
+
+

@@ -1,0 +1,325 @@
+\documentclass{report}
+\setlength{\parindent}{0pt} % Sets the automatic indent size
+\usepackage{graphicx} % Required for inserting images
+\usepackage{pictex}   % Ensure PicTeX is available
+\usepackage{pgfplots}
+\usepackage{filecontents}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{xcolor}
+
+
+\lstset{
+    language=C++,
+    basicstyle=\ttfamily\tiny,
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{gray}\itshape,
+    stringstyle=\color{red},
+    numbers=none,
+    numberstyle=\tiny,
+    stepnumber=1,
+    breaklines=true,
+    frame=single,
+    captionpos=b,
+    showstringspaces=false
+}
+\begin{document}
+\setcounter{page}{10}
+
+
+
+\section*{Appendix:}
+
+
+Code for the project:
+\begin{lstlisting}[language=c++]
+// These functions are defined below.
+void AllocateMemory ();
+void GetComponentData(void);
+void GetM(void);
+void ComputePCAAnalysis(int p, int n);
+void ComputeEigenDecomposition(double **covMatrix, int p, int n);
+void ComputeBetasAndPlot(double **eigenvectors, int p, int n);
+double Covariance_Vector(double *A, double *B, int n);
+double Variance_Vector(double *A, int n);
+void ComputeAndWriteXYPoints(double *beta, double *q, int p, int n); 
+
+// Global variables
+double **X, *M;
+char **ticker;
+
+#include "Functions.h"
+
+int main () {
+
+   int p, n, i;
+
+   // Allocate some array space.
+   AllocateMemory ();
+
+   // Read in the DJI data. These are daily returns for the 30 components for 2020.
+   // Put it into a 30 x 253 array X. For your convenience, the data has already been
+   // shifted so each row has mean zero. The means are very small and this has minimal
+   // impact.
+   GetComponentData();
+
+  // Now read in the daily returns of the total Dow average for 2020. This is a list
+  // of 253 returns and is put into the list M.  This is used in problem 3
+  // to compute the individual components' betas. Also used in problem 4. The data
+  // here has also been shifted to have mean zero.
+  GetM();
+
+   // Get the dimensions of DJI.
+   n = Columns (X);      // Should be 253
+   p = Rows (X);         // Should be 30
+   printf ("The data has %d rows and %d columns.\n\n", p, n);
+
+   // Report the tickers.
+   printf ("The %d components of the Dow are:\n", p);
+   printf ("Column\n");
+   printf ("Number   Ticker\n");
+   printf ("======   ======\n");
+   for (i = 1; i <= p; i++) {
+      printf ("  %2d     ", i);
+      printf (ticker[i]);
+      printf ("\n");
+   }
+   ComputePCAAnalysis(p, n);
+
+   // Pause so the window doesn't close.
+   Pause ();
+
+}
+
+
+void ComputePCAAnalysis(int p, int n) {
+   int i, j;
+   //compute covariance and correlation matricies
+   double **covMatrix = Covariance(X);
+   double **corrMatrix = Correlation(X);
+
+   printf("\nPairs with correlation > 0.8 or negative correlation:\n");
+   printf("Ticker 1    Ticker 2    Correlation\n=========   =========   ============\n");
+   for (i = 1; i <= p; i++) {
+       for (j = i + 1; j <= p; j++) {
+           if (corrMatrix[i][j] > 0.8 || corrMatrix[i][j] < 0) {
+               printf("%-10s %-10s %8.3f\n", ticker[i], ticker[j], corrMatrix[i][j]);
+           }
+       }
+   }
+   //computes eigenvalues and vectors of covMatrix
+   ComputeEigenDecomposition(covMatrix, p, n);
+
+   //frees up memory
+   Free(covMatrix);
+   Free(corrMatrix);
+}
+void ComputeEigenDecomposition(double **covMatrix, int p, int n) {
+   //compute eigenvalues
+   double **E = QRalgorithm(covMatrix);
+   //compute eigenvectors
+   double **Q = Evector(covMatrix, E);      
+   printf("\nFirst Principal Component (Eigenvector with largest Eigenvalue):\n");
+   for (int i = 1; i <= p; i++) {
+      printf("%s: %f\n", ticker[i], Q[i][1]);
+   }  
+   //compute second eigenvector with correlations greater than |0.15|
+   printf("\nSecond Principal Component:\n");
+   double value1 = 0.15;
+   double value2 = -0.15;
+   for (int i = 1; i <= p; i++) {
+      if (Q[i][2] > value1 || Q[i][2] < value2){
+         printf("%s: %f\n", ticker[i], Q[i][2]);
+      }
+   }
+   ComputeBetasAndPlot(Q, p, n);
+}
+
+void ComputeBetasAndPlot(double **eigenvectors, int p, int n) {
+   double *betas = (double *) calloc(p + 1, sizeof(double));
+   //computes variance of each vector
+   double varM = Variance_Vector(M, n);
+
+   printf("\nBeta vs First Eigenvector Component:\n");
+   printf("Ticker       Beta      Component Value\n=========    ======    ================\n");
+
+   for (int i = 1; i <= p; i++) {
+      //compute covariance between vectors X[i] and M and divide by variance of M
+       betas[i] = Covariance_Vector(X[i], M, n) / varM;
+       printf("%-10s  %6.3f      %6.3f\n", ticker[i], betas[i], eigenvectors[i][1]);
+   }
+   //create an excel file to store all data points and prints them into it
+   FILE *fp = fopen("scatter_data.csv", "w");
+   fprintf(fp, "Beta,Component\n");
+   for (int i = 1; i <= p; i++) {
+       fprintf(fp, "%f,%f\n", betas[i], eigenvectors[i][1]);
+   }
+   fclose(fp);
+   printf("\nScatter data written to 'scatter_data.csv'.\n");
+   double *q1 = (double *) calloc(p + 1, sizeof(double));
+   for (int i = 1; i <= p; i++) {
+       q1[i] = eigenvectors[i][1];  //first eigenvector
+   }
+   ComputeAndWriteXYPoints(betas, q1, p, n);
+   free(q1);
+   free(betas);
+}
+
+double Covariance_Vector(double *A, double *B, int n) {
+   double meanA = 0.0, meanB = 0.0, cov = 0.0;
+   for (int i = 1; i <= n; i++) {
+       meanA += A[i];
+       meanB += B[i];
+   }
+   meanA /= n;
+   meanB /= n;
+   for (int i = 1; i <= n; i++) {
+       cov += (A[i] - meanA) * (B[i] - meanB);
+   }
+   return cov / (n - 1);
+}
+
+double Variance_Vector(double *A, int n) {
+   double mean = 0.0, var = 0.0;
+   for (int i = 1; i <= n; i++) {
+       mean += A[i];
+   }
+   mean /= n;
+   for (int i = 1; i <= n; i++) {
+       var += (A[i] - mean) * (A[i] - mean);
+   }
+   return var / (n - 1);
+}
+
+
+
+// This function reads in the 253 daily returns for each of the 30 components of the
+// Dow for the year 2020.
+void GetComponentData() {
+
+   int i, k, t;
+   double R, mu;
+   char input[100];
+   FILE *fp;
+
+   fp = fopen ("DJI.txt", "r");
+   for (i = 1; i <= 30; i++) {
+
+      // Read in stock i's return data.
+
+      // Get the tickers for each stock.
+      fgets (input, 99, fp);
+      for (k = 0; k < 10; k++) {
+         ticker[i][k] = input[k];
+         if (ticker[i][k] == '\n') {
+            ticker[i][k] = '\0';
+            break;
+         }
+      }
+
+      // Read in the 253 daily returns in percent.
+      mu = 0.0;
+      for (t = 1; t <= 253; t++) {
+
+         // Month t return for stock i, put it into X[i][t].
+         fgets (input, 99, fp);
+         sscanf (input, "%lf", &R);
+         X[i][t] = R;
+         mu += R / 253.0;
+
+      }
+
+      // Make the mean return 0 (this has minimal impact).
+      for (t = 1; t <= 253; t++) {
+         X[i][t] -= mu;
+      }   
+
+   }
+   fclose (fp);
+
+   return;
+
+}
+
+
+void ComputeAndWriteXYPoints(double *beta, double *q, int p, int n) {
+   FILE *fp = fopen("xy_scatter.csv", "w");
+   if (fp == NULL) {
+       perror("Error opening output file.");
+       exit(1);
+   }
+
+   fprintf(fp, "x,y\n");
+
+   for (int t = 1; t <= n; t++) {
+       double Y1t = 0.0;
+
+       // Compute first principal component at time t (dot of q and column t of X)
+       for (int i = 1; i <= p; i++) {
+           Y1t += q[i] * X[i][t];
+       }
+
+       for (int i = 1; i <= p; i++) {
+           double x = beta[i] * M[t];
+           double y = Y1t * q[i];
+           fprintf(fp, "%f,%f\n", x, y);
+       }
+   }
+
+   fclose(fp);
+   printf("Scatter data written to 'xy_scatter.csv'.\n");
+}
+
+
+
+// This function reads in the daily aggregate returns of the Dow Jones Industrial Average
+// for the year 2020.
+void GetM() {
+
+   int t;
+   double R, mu=0.0;
+   char input[100];
+   FILE *fp;
+
+   fp = fopen ("M.txt", "r");
+   for (t = 1; t <= 253; t++) {
+
+      // Month t return for the DJIA (the total Dow).
+      fgets (input, 99, fp);
+      sscanf (input, "%lf", &R);
+      M[t] = R;
+      mu += R / 253.0;
+
+   }
+
+   // Make the market returns mean zero (this has minimal impact).
+   for (t = 1; t <= 253; t++) {
+      M[t] -= mu;
+   }
+
+   fclose (fp);
+
+   return;
+
+}
+
+// Allocate some array space.
+void AllocateMemory () {
+
+   int i;
+
+   X = Array (30, 253);
+   M = List (253);
+
+   ticker = (char **) calloc (31, sizeof (char *));
+   for (i = 1; i <= 30; i++) {
+      ticker[i] = (char *) calloc (10, sizeof (char));
+   }
+
+   return;
+
+}
+
+\end{lstlisting}
+
+\end{document}
