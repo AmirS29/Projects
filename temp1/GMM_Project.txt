@@ -1,0 +1,321 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.datasets import make_moons
+from sklearn.mixture import GaussianMixture
+from sklearn.model_selection import GridSearchCV
+import scipy.stats as stats
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+from sklearn.decomposition import PCA
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.datasets import load_digits
+#libraries I used for all my code and a lot of the following code and most of the
+#level sets and graphs were aided by LLM
+
+#PART 1:
+
+#Generate the two-moons dataset from make_moons:
+X, _ = make_moons(n_samples=900, noise=0.1, random_state=0)
+plt.figure(figsize=(10, 6))
+plt.scatter(X[:, 0], X[:, 1], label='Data Points')
+plt.title("Two Moons Dataset")
+plt.xlabel("Feature 1")
+plt.ylabel("Feature 2")
+plt.show()
+
+gmm = GaussianMixture(n_components=2)
+gmm.fit(X)  
+labels = gmm.predict(X) 
+
+plt.figure(figsize=(8, 6))
+
+#used chatgpt to help me plot level sets
+x = np.linspace(np.min(X[:, 0]), np.max(X[:, 0]), 100)
+y = np.linspace(np.min(X[:, 1]), np.max(X[:, 1]), 100)
+X_grid, Y_grid = np.meshgrid(x, y)
+XY_grid = np.column_stack([X_grid.ravel(), Y_grid.ravel()])
+
+#compute PDF for each component 
+colors = plt.cm.get_cmap('tab10', 2)
+for i in range(2):
+    Z = gmm.weights_[i] * stats.multivariate_normal.pdf(XY_grid, gmm.means_[i], gmm.covariances_[i])
+    Z = Z.reshape(X_grid.shape)
+    plt.contour(X_grid, Y_grid, Z, levels=8, colors=[colors(i)], alpha=0.5)
+plt.scatter(X[:, 0], X[:, 1], c=labels, cmap=colors, label='Data Points & Level Sets')
+plt.title('Gaussian Mixture Model for Two-Moon Dataset for 2 Components')
+plt.xlabel('X')
+plt.ylabel('Y')
+plt.legend()
+plt.show()
+
+#use BIC
+gmm = GaussianMixture()
+params = {'n_components': range(2, 20), 'covariance_type': ['full', 'tied', 'diag', 'spherical']}
+grid = GridSearchCV(gmm, params, cv=5) 
+grid.fit(X)
+best_components = grid.best_params_['n_components']
+best_covariance_type = grid.best_params_['covariance_type']
+print("Best number of components:", best_components)
+print("Best covariance type:", best_covariance_type)
+
+gmm = GaussianMixture(n_components=best_components, covariance_type=best_covariance_type)
+gmm.fit(X)
+labels = gmm.predict(X)
+plt.figure(figsize=(8, 6))
+x = np.linspace(np.min(X[:, 0]), np.max(X[:, 0]), 100)
+y = np.linspace(np.min(X[:, 1]), np.max(X[:, 1]), 100)
+X_grid, Y_grid = np.meshgrid(x, y)
+XY_grid = np.column_stack([X_grid.ravel(), Y_grid.ravel()])
+colors = plt.cm.get_cmap('tab10', best_components)  #colormap with distinct colors
+for i in range(best_components):
+    Z = gmm.weights_[i] * stats.multivariate_normal.pdf(XY_grid, gmm.means_[i], gmm.covariances_[i])
+    Z = Z.reshape(X_grid.shape)
+    plt.contour(X_grid, Y_grid, Z, levels=5, colors=[colors(i)], alpha=0.5)
+    
+plt.scatter(X[:, 0], X[:, 1], c=labels, cmap=colors, alpha=0.8, label='Data Points & Level Sets')
+plt.title(f'Gaussian Mixture Model for Two-Moon Dataset ({best_components} Components)')
+plt.xlabel('X')
+plt.ylabel('Y')
+plt.legend()
+plt.show()
+
+#PART 2:
+
+n_samples=100
+X, Y = make_moons(n_samples=n_samples, noise=0.1, random_state=0)
+plt.figure(figsize=(8, 6))
+plt.scatter(X[Y == 0, 0], X[Y == 0, 1], color='blue', label='Upper Moon (y = 1)')
+plt.scatter(X[Y == 1, 0], X[Y == 1, 1], color='red', label='Lower Moon (y = -1)')
+plt.title("Original Two-Moon Data")
+plt.xlabel("X")
+plt.ylabel("Y")
+plt.legend()
+plt.show()
+
+#GMM with P(X|Y=i) with i=+-1
+Y = np.ones(len(X)) #assigns all values of y to 1
+Y[X[:, 1] < 0] = -1 #if a X<0, assigns to class y=-1
+plt.figure(figsize=(8, 6))
+plt.scatter(X[Y == 1][:, 0], X[Y == 1][:, 1], color='blue', label='y=1')
+plt.scatter(X[Y == -1][:, 0], X[Y == -1][:, 1], color='red', label='y=-1')
+plt.title("Two Moons Data With Classification of 1 and -1")
+plt.xlabel("X")
+plt.ylabel("Y")
+plt.legend()
+plt.show()
+
+#fit GMM given the parameters
+gmm = GaussianMixture(n_components=2, random_state=0)
+gmm.fit(X)
+
+probs = gmm.predict_proba(X)
+predicted_class = np.argmax(probs, axis=1)  #chooses class with highest probability
+
+#separate data points based on predicted class labels
+X_class1 = X[predicted_class == 1]  #points predicted as Class y=1 (Upper Moon)
+X_class0 = X[predicted_class == 0]  #points predicted as Class y=-1 (Lower Moon)
+plt.figure(figsize=(8, 6))
+plt.scatter(X_class1[:, 0], X_class1[:, 1], color='red', label='Upper Moon (y = 1)')
+plt.scatter(X_class0[:, 0], X_class0[:, 1], color='blue', label='Lower Moon (y = -1)')
+plt.title("Two Moons Data with GMM Classification")
+plt.xlabel("X")
+plt.ylabel("Y")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+#determine class assignment for each GMM component based on majority rule
+component_class_assignment = []
+def component_to_class_assignment():
+    for i in range(gmm.n_components):
+        prob_y1 = np.mean(Y[gmm.predict(X) == i] == 1)  #compute probability of component in class
+        if prob_y1 > 0.5:
+            component_class_assignment.append(1)  #assigns component to class y=1
+        else:
+            component_class_assignment.append(-1)  #assigns component to class y=-1
+            
+#fit GMM with 3 components
+gmm = GaussianMixture(n_components=3, random_state=0)
+gmm.fit(X)
+
+#classify data points based on GMM component with highest probability using function 
+component_to_class_assignment()
+probabilities = gmm.predict_proba(X)
+assigned_classes = [component_class_assignment[np.argmax(prob)] for prob in probabilities]
+plt.figure(figsize=(8, 6))
+x = np.linspace(np.min(X[:, 0]), np.max(X[:, 0]), 100)
+y = np.linspace(np.min(X[:, 1]), np.max(X[:, 1]), 100)
+X_grid, Y_grid = np.meshgrid(x, y)
+XY_grid = np.column_stack([X_grid.ravel(), Y_grid.ravel()])
+
+#compute PDF for each component and plot level sets with matching colors
+for i in range(gmm.n_components):
+    Z = gmm.weights_[i] * stats.multivariate_normal.pdf(XY_grid, gmm.means_[i], gmm.covariances_[i])
+    Z = Z.reshape(X_grid.shape)
+    if component_class_assignment[i] == 1:
+        plt.contour(X_grid, Y_grid, Z, levels=8, colors='blue', alpha=0.5)
+    else:
+        plt.contour(X_grid, Y_grid, Z, levels=8, colors='red', alpha=0.5)
+        
+#plot the data points according to each component's class
+plt.scatter(X[:, 0], X[:, 1], c=['blue' if cls == 1 else 'red' for cls in assigned_classes], label='Data Points and Level Sets')
+plt.title('Gaussian Mixture Model with 3 Components')
+plt.xlabel('X')
+plt.ylabel('Y')
+plt.legend()
+plt.show()
+#I have used LLM to help me plot and graph my results, which includes the level sets
+
+#train and divide set
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=0)
+component_range = range(3, 11)
+test_errors = []
+for n_components in component_range:
+    gmm = GaussianMixture(n_components=n_components, random_state=0)
+    gmm.fit(X_train)
+    Y_pred = gmm.predict(X_test)
+    #using accuracy to determine the error
+    test_error = 1 - accuracy_score(Y_test, Y_pred)  
+    test_errors.append(test_error)
+optimal_components = component_range[np.argmin(test_errors)] #minmize the error here 
+print(f"Optimal number of components: {optimal_components}")
+
+#the following code is just a copy and paste from above
+gmm = GaussianMixture(n_components=optimal_components, random_state=0)
+gmm.fit(X)
+component_class_assignment[:] = [] #this is to empty the list out
+component_to_class_assignment() #call the function again
+probabilities = gmm.predict_proba(X)
+assigned_classes = [component_class_assignment[np.argmax(prob)] for prob in probabilities]
+plt.figure(figsize=(8, 6))
+x = np.linspace(np.min(X[:, 0]), np.max(X[:, 0]), 100)
+y = np.linspace(np.min(X[:, 1]), np.max(X[:, 1]), 100)
+X_grid, Y_grid = np.meshgrid(x, y)
+XY_grid = np.column_stack([X_grid.ravel(), Y_grid.ravel()])
+for i in range(gmm.n_components):
+    Z = gmm.weights_[i] * stats.multivariate_normal.pdf(XY_grid, gmm.means_[i], gmm.covariances_[i])
+    Z = Z.reshape(X_grid.shape)
+    if component_class_assignment[i] == 1:
+        plt.contour(X_grid, Y_grid, Z, levels=8, colors='blue', alpha=0.5)
+    else:
+        plt.contour(X_grid, Y_grid, Z, levels=8, colors='red', alpha=0.5)
+plt.scatter(X[:, 0], X[:, 1], c=['blue' if cls == 1 else 'red' for cls in assigned_classes], label='Data Points and Level Sets')
+plt.title(f'Gaussian Mixture Model with {optimal_components} Components')
+plt.xlabel('X')
+plt.ylabel('Y')
+plt.legend()
+
+#parameters of the GMM components
+means = gmm.means_  
+covariances = gmm.covariances_  
+weights = gmm.weights_  
+generated_samples = np.zeros((n_samples, X.shape[1]))
+for i in range(n_samples):
+    component = np.random.choice(optimal_components, p=weights)
+    point = np.random.multivariate_normal(means[component], covariances[component])
+    generated_samples[i] = point
+plt.figure(figsize=(10, 6))
+#plot original data (two moons) then the generated GMM in one graph
+plt.scatter(X[:, 0], X[:, 1], color='blue', label='Original Data (Two Moons)', alpha=0.8)
+plt.scatter(generated_samples[:, 0], generated_samples[:, 1], color='red', label='Generated Samples (GMM)', alpha=0.5)
+plt.title(f"GMM Generated Samples ({optimal_components} Components)")
+plt.xlabel("X")
+plt.ylabel("Y")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+#PART #3:
+
+#load MNIST dataset
+mnist = load_digits()
+X = mnist.data / 255.0  
+y = mnist.target.astype(int)
+
+#use PCA to reduce dimension reduction
+n_components = 64
+pca = PCA(n_components=n_components, random_state=0)
+X_pca = pca.fit_transform(X)
+
+#plot the explained variance ratio in relationship to
+plt.figure(figsize=(10, 6))
+plt.plot(np.cumsum(pca.explained_variance_ratio_))
+plt.xlabel('Number of Components')
+plt.ylabel('Cumulative Explained Variance')
+plt.title('Explained Variance Ratio by Number of PCA Components')
+plt.grid(True)
+plt.show()
+
+#perform PCA with chosen number of components
+n_components = 46
+pca = PCA(n_components=n_components, random_state=0)
+X_pca = pca.fit_transform(X)
+
+#train GMM without labels (unsupervised) and then find BIC score
+gmm_unsupervised = GaussianMixture(n_components=n_components, random_state=0)
+gmm_unsupervised.fit(X_pca)
+labels_unsupervised = gmm_unsupervised.predict(X_pca)
+print("Unsupervised GMM BIC:", -1*gmm_unsupervised.bic(X_pca)) #value is negative w/o -1*
+
+#train GMM with labels (semi-supervised) then find BIC score
+#used chatgpt to help me define function of Z of x and y to reshape it
+Z = np.hstack((X_pca, y.reshape(-1, 1)))
+gmm_supervised = GaussianMixture(n_components=n_components, random_state=0)
+gmm_supervised.fit(Z)
+labels_gmm_supervised = gmm_supervised.predict(Z)
+print("Supervised GMM BIC:", -1*gmm_supervised.bic(Z)) 
+#I used LLM to help determine how to compute BIC in code
+
+#chose unsupervised
+class_means = {digit: [] for digit in range(10)}
+
+#associate GMM components with classes
+for digit in range(10):
+    #filter samples belonging to the current digit
+    digit_samples = X_pca[y == digit]
+    digit_labels = gmm_unsupervised.predict(digit_samples)
+    #get unique labels (components) and their counts
+    unique_labels, label_counts = np.unique(digit_labels, return_counts=True)
+    #sort labels by their frequency
+    sorted_labels = unique_labels[np.argsort(-label_counts)]
+    #most frequent digit
+    main_component = sorted_labels[0]
+    main_component_mean = gmm_unsupervised.means_[main_component]
+    class_means[digit] = main_component_mean
+
+plt.figure(figsize=(12, 6))
+for digit, mean in class_means.items():
+    digit_image = pca.inverse_transform(mean).reshape(8, 8)  
+    plt.subplot(2, 5, digit + 1)
+    plt.imshow(digit_image, cmap='gray')
+    plt.title(f"Digit {digit}")
+    plt.axis('off')
+plt.suptitle('Means of GMM Components for Each Digit')
+plt.show()
+#used chatgpt to help me plot and find the mean
+
+#sample from the GMM
+n_samples = 10  
+generated_samples = gmm_unsupervised.sample(n_samples)[0]
+generated_digits = pca.inverse_transform(generated_samples)
+generated_digits = generated_digits.reshape(-1, 8, 8)
+plt.figure(figsize=(12, 6))
+for i in range(n_samples):
+    plt.subplot(2, 5, i + 1)
+    plt.imshow(generated_digits[i], cmap='gray')
+    plt.title(f"Sample {i+1}")
+    plt.axis('off')
+plt.suptitle('Samples Generated from GMM')
+plt.show()
+
+#done with help from sklearn library
+#split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X_pca, y, test_size=0.3, random_state=0)
+#train the Gradient Boosting Classifier
+gbc = GradientBoostingClassifier(random_state=0)
+gbc.fit(X_train, y_train)
+#predict the labels 
+y_pred = gbc.predict(X_test)
+#evaluate the classifier
+accuracy = accuracy_score(y_test, y_pred)
+print(f"Accuracy of Gradient Boosting Classifier: {accuracy:.2f}")
