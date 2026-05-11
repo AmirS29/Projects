@@ -1,4 +1,4 @@
-# Quantitative Portfolio Optimization & Backtesting Engine
+# Quantitative Portfolio Optimization 
 
 ## 📌 Objective
 A data-driven financial modeling tool that applies Modern Portfolio Theory (MPT) to optimize asset allocation across equities, commodities, and real estate. The engine calculates the Efficient Frontier, identifies optimal risk-reward portfolios, backtests historical performance, and exports structured KPIs to feed a downstream Business Intelligence (BI) dashboard.
